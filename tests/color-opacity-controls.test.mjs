@@ -11,4 +11,4 @@ assert.match(html, /function resolveLightColor/, "Renderer derives final color f
 assert.match(html, /function resolveLightOpacity/, "Renderer derives final opacity from light intensity and opacity randomness");
 assert.match(html, /colorRandomness <= 0\.001/, "Zero color randomness collapses lights to the base color");
 assert.match(html, /target\[offset \+ 4\] = resolvedColor\[0\] \/ 255/, "WebGPU receives the resolved physical light color");
-assert.match(html, /target\[offset \+ 7\] = alpha \* 0\.72/, "WebGPU receives randomized opacity through alpha");
+assert.match(html, /target\[offset \+ 7\] = alpha \* 0\.62/, "WebGPU receives randomized opacity through alpha");

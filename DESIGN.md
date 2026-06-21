@@ -20,8 +20,10 @@ The showcase should emphasize these visible lens cues:
 - **Aperture shape**: blade count and blade roundness change the highlight silhouette.
 - **Defocus scale**: f-stop and focus distance change the circle of confusion.
 - **Energy behavior**: larger highlights keep believable brightness through exposure and tone mapping.
+- **Long-tail source intensity**: most sources stay modest while a few become visibly dominant, matching night photography better than uniformly bright dots.
 - **Axis scaling**: independent X/Y scale controls stretch or squash the highlight shape.
 - **Randomized distribution**: a controlled randomness parameter can shift lights from street-like lanes into a scattered bokeh field.
+- **Scene-aware randomization**: randomized placement keeps road perspective and clustered distant lights instead of becoming an even particle field.
 - **Count and size variation**: active bokeh count is adjustable, and per-light size randomness is capped so the largest generated highlight is no more than 2x the smallest from the current lens scale.
 - **Overall size**: a global size multiplier scales the final constrained bokeh radius when the display needs larger or smaller highlights.
 - **Realistic night palette**: warm white headlights, amber streetlights, and red tail lights dominate; cool tones are rare and desaturated.
@@ -32,6 +34,7 @@ The showcase should emphasize these visible lens cues:
 - **Traffic depth cues**: headlight and tail-light pairs follow a vanishing street layout, with many smaller distant sources and only a few large foreground discs.
 - **Wet-road reflections**: lower-frame light sources cast blurred vertical reflections so the showcase reads like a real night-lens photograph instead of floating dots.
 - **Sensor response**: high dynamic range accumulation is compressed by filmic tone mapping.
+- **Subtle PSF imperfection**: procedural lens dust, faint onion rings, and horizon haze add photographic structure without turning the renderer into decorative effects.
 - **Custom bokeh masks**: users can draw or import a black-background bokeh image as a 256x256 aperture/PSF texture, preserving soft edges, internal RGB texture, and chromatic detail.
 - **Editable PSF detail**: imported PSF images expose black point, white point, and gamma controls, while free drawing exposes brush size, softness, opacity, color, black strokes, and erasing.
 - **Bokeh motion**: every light source has deterministic sub-pixel drift and intensity flicker so exported videos feel like lens footage rather than a static plate.
@@ -63,6 +66,7 @@ The WebGPU path:
 - defers Canvas 2D context creation so the same canvas can be configured as a WebGPU surface when the browser supports it;
 - streams one instanced quad per procedural light into a vertex buffer each frame;
 - computes a soft aperture point-spread function in WGSL, with aperture shape, rim bias, subtle surface texture, and a shoulder outside the hard aperture edge;
+- shapes per-source brightness with a long-tail intensity distribution and soft alpha clipping so overlaps compress like exposure instead of stacking as identical translucent stamps;
 - uploads a 256x256 editable bokeh mask/texture from the in-page shape editor;
 - supports a Default procedural aperture preset that keeps blade count and roundness active, plus circle, ellipse, rectangle, hexagon, star, anamorphic slit, and ring texture-mask presets;
 - lets the user rotate/scale preset bases and imported images, then draw more detail on top in a 720px Edit workspace, while the compact canvas stays a preview/launcher;
@@ -73,6 +77,7 @@ The WebGPU path:
 - adds subtle per-light rotation and UV offset to custom PSF textures so repeated imported shapes do not stack as identical stamps;
 - accumulates bokeh energy additively into an `rgba16float` HDR render target instead of blending directly into the display buffer;
 - uses a final tone-map pass to combine a dark night-road background, soft-knee compressed HDR bokeh overlap, and a filmic response curve;
+- adds faint procedural lens dust, onion-ring structure, and a low horizon haze cue to keep large defocused highlights and their overlaps from reading as flat solid discs;
 - keeps fake single-pass screen-space bloom disabled, because sparse fixed offset samples create four-corner ghosts and broad pure-color patches around small highlights;
 - caps rendering to 1x DPR and 30fps, and skips frames while the document is hidden.
 
@@ -86,6 +91,7 @@ The Canvas fallback:
 - add an overlapping blue-violet dispersion layer under bright off-axis bokeh discs;
 - apply independent X/Y scaling to the highlight footprint;
 - blend each light between an anchored street layout and a seeded randomized layout;
+- keep seeded random layouts tied to lane depth, vanishing-point perspective, and small clusters so the Randomness control remains photographic rather than uniform scatter;
 - render low-opacity wet-road reflections for lower-frame light sources;
 - accumulate all bokeh highlights onto a transparent bokeh layer before final composition, then derive a soft bloom layer from that accumulation so overlapping highlights fuse more like exposure instead of independent transparent circles;
 - use additive-style accumulation with `lighter` blending;
