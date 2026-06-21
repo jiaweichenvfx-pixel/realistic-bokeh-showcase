@@ -36,6 +36,8 @@
       left: 24px;
       top: 24px;
       width: min(340px, calc(100vw - 48px));
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
       padding: 18px 18px 16px;
       border: 1px solid rgba(255, 255, 255, 0.13);
       border-radius: 8px;
@@ -130,6 +132,22 @@
       width: 100%;
       flex: none;
       padding: 0 8px;
+    }
+
+    .draw-tools {
+      display: grid;
+      grid-template-columns: 42px 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .draw-tools input[type="color"] {
+      width: 42px;
+      height: 32px;
+      padding: 2px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
     }
 
     .shape-import {
@@ -234,6 +252,24 @@
     </label>
 
     <label class="control">
+      <span>Count</span>
+      <input data-param="bokehCount" type="range" min="8" max="103" step="1" value="56">
+      <span class="value" data-value="bokehCount"></span>
+    </label>
+
+    <label class="control">
+      <span>Size Random</span>
+      <input data-param="sizeRandomness" type="range" min="0" max="1" step="0.01" value="0.38">
+      <span class="value" data-value="sizeRandomness"></span>
+    </label>
+
+    <label class="control">
+      <span>Overall Size</span>
+      <input data-param="overallSize" type="range" min="0.45" max="2.2" step="0.01" value="1">
+      <span class="value" data-value="overallSize"></span>
+    </label>
+
+    <label class="control">
       <span>Dispersion</span>
       <input data-param="chromatic" type="range" min="0" max="1" step="0.01" value="0.18">
       <span class="value" data-value="chromatic"></span>
@@ -257,19 +293,60 @@
       <span class="value" data-value="bloom"></span>
     </label>
 
+    <label class="control">
+      <span>Base Hue</span>
+      <input data-param="baseHue" type="range" min="0" max="360" step="1" value="36">
+      <span class="value" data-value="baseHue"></span>
+    </label>
+
+    <label class="control">
+      <span>Color Rand</span>
+      <input data-param="colorRandomness" type="range" min="0" max="1" step="0.01" value="0.18">
+      <span class="value" data-value="colorRandomness"></span>
+    </label>
+
+    <label class="control">
+      <span>Alpha Rand</span>
+      <input data-param="opacityRandomness" type="range" min="0" max="1" step="0.01" value="0.16">
+      <span class="value" data-value="opacityRandomness"></span>
+    </label>
+
     <div class="shape-editor" aria-label="Custom bokeh shape">
       <canvas id="shape-editor" class="shape-canvas" width="256" height="256"></canvas>
       <canvas id="shape-crop" class="shape-crop" width="256" height="256"></canvas>
       <div class="shape-actions">
+        <button type="button" data-shape-preset="default">Default</button>
         <button type="button" data-shape-preset="circle">Circle</button>
         <button type="button" data-shape-preset="ellipse">Ellipse</button>
         <button type="button" data-shape-preset="rectangle">Rect</button>
+        <button type="button" data-shape-preset="hexagon">Hex</button>
+        <button type="button" data-shape-preset="star">Star</button>
+        <button type="button" data-shape-preset="anamorphic">Slit</button>
+        <button type="button" data-shape-preset="ring">Ring</button>
         <button type="button" id="shape-import-trigger">Import</button>
         <button type="button" id="shape-apply-crop">Apply</button>
         <button type="button" id="shape-clear">Clear</button>
       </div>
       <input id="shape-import" class="shape-import" type="file" accept="image/*">
     </div>
+    <div class="draw-tools" aria-label="Custom bokeh drawing tools">
+      <input id="shape-draw-color" type="color" value="#ffffff" aria-label="Brush color">
+      <button type="button" data-draw-tool="paint">Paint</button>
+      <button type="button" data-draw-tool="black">Black</button>
+      <button type="button" data-draw-tool="erase">Erase</button>
+    </div>
+
+    <label class="control">
+      <span>Shape Rot</span>
+      <input data-param="shapeRotation" type="range" min="-180" max="180" step="1" value="0">
+      <span class="value" data-value="shapeRotation"></span>
+    </label>
+
+    <label class="control">
+      <span>Shape Scale</span>
+      <input data-param="shapeScale" type="range" min="0.35" max="1.4" step="0.01" value="1">
+      <span class="value" data-value="shapeScale"></span>
+    </label>
 
     <div class="actions">
       <button id="preset-cinema" type="button">Cinema</button>
@@ -295,14 +372,25 @@
     const shapeCrop = document.querySelector("#shape-crop");
     const shapeCropCtx = shapeCrop.getContext("2d", { alpha: false });
     const shapeImport = document.querySelector("#shape-import");
+    const shapeDrawColor = document.querySelector("#shape-draw-color");
     const SHAPE_TEXTURE_SIZE = 256;
+    const shapeBaseLayer = document.createElement("canvas");
+    const shapePaintLayer = document.createElement("canvas");
+    const importedShapeTextureCanvas = document.createElement("canvas");
+    shapeBaseLayer.width = shapeBaseLayer.height = SHAPE_TEXTURE_SIZE;
+    shapePaintLayer.width = shapePaintLayer.height = SHAPE_TEXTURE_SIZE;
+    importedShapeTextureCanvas.width = importedShapeTextureCanvas.height = SHAPE_TEXTURE_SIZE;
+    const shapeBaseCtx = shapeBaseLayer.getContext("2d", { alpha: true });
+    const shapePaintCtx = shapePaintLayer.getContext("2d", { alpha: true });
+    const importedShapeTextureCtx = importedShapeTextureCanvas.getContext("2d", { alpha: true });
     const TARGET_FPS = 30;
     const FRAME_INTERVAL_MS = 1000 / TARGET_FPS;
     let lastFrameTime = 0;
     let shapeTextureVersion = 0;
     let isDrawingShape = false;
     let lastShapePoint = null;
-    let currentShapePreset = "circle";
+    let currentShapePreset = "default";
+    let currentDrawTool = "paint";
     let importedShapeImage = null;
     let isDraggingCrop = false;
     let cropDragStart = null;
@@ -321,10 +409,18 @@
       scaleX: 1,
       scaleY: 1,
       randomness: 0.16,
+      bokehCount: 56,
+      sizeRandomness: 0.38,
+      overallSize: 1,
       chromatic: 0.18,
       rimBias: 0.04,
       exposure: 1.05,
-      bloom: 0.04
+      bloom: 0.04,
+      baseHue: 36,
+      colorRandomness: 0.18,
+      opacityRandomness: 0.16,
+      shapeRotation: 0,
+      shapeScale: 1
     };
 
     const formatters = {
@@ -335,10 +431,18 @@
       scaleX: value => `${value.toFixed(2)}x`,
       scaleY: value => `${value.toFixed(2)}x`,
       randomness: value => `${Math.round(value * 100)}%`,
+      bokehCount: value => String(Math.round(value)),
+      sizeRandomness: value => `${Math.round(value * 100)}%`,
+      overallSize: value => `${value.toFixed(2)}x`,
       chromatic: value => `${Math.round(value * 100)}%`,
       rimBias: value => value.toFixed(2),
       exposure: value => `${value.toFixed(2)}x`,
-      bloom: value => `${Math.round(value * 100)}%`
+      bloom: value => `${Math.round(value * 100)}%`,
+      baseHue: value => `${Math.round(value)}deg`,
+      colorRandomness: value => `${Math.round(value * 100)}%`,
+      opacityRandomness: value => `${Math.round(value * 100)}%`,
+      shapeRotation: value => `${Math.round(value)}deg`,
+      shapeScale: value => `${value.toFixed(2)}x`
     };
 
     const warm = [244, 176, 95];
@@ -462,6 +566,34 @@
       return a + (b - a) * t;
     }
 
+    function activeLights() {
+      const count = clamp(Math.round(params.bokehCount), 1, lights.length);
+      if (count >= lights.length) return lights;
+      const selected = [];
+      const step = lights.length / count;
+      for (let i = 0; i < count; i++) {
+        selected.push(lights[Math.floor(i * step)]);
+      }
+      return selected;
+    }
+
+    function lightSizeNoise(light) {
+      const raw = Math.sin((light.index + 1) * 127.13 + light.textureSeed * 0.017) * 43758.5453;
+      return raw - Math.floor(raw);
+    }
+
+    function computeBokehRadius(light, minDim) {
+      const maxSizeRatio = 2;
+      const sizeRandomness = Math.max(0, Math.min(1, params.sizeRandomness));
+      const apertureScale = 1.8 / params.fStop;
+      const focusLift = 0.86 + Math.abs(params.focus - 0.52) * 0.36;
+      const baseRadius = Math.max(3, minDim * (0.012 + apertureScale * 0.009) * focusLift);
+      const sizeFactor = 1 + lightSizeNoise(light) * sizeRandomness * (maxSizeRatio - 1);
+      const maxRadius = baseRadius * maxSizeRatio;
+      const overallSize = Math.max(0.45, Math.min(2.2, params.overallSize));
+      return Math.min(maxRadius, baseRadius * sizeFactor) * overallSize;
+    }
+
     function markShapeChanged() {
       shapeTextureVersion += 1;
     }
@@ -471,22 +603,114 @@
       shapeCtx.globalCompositeOperation = "source-over";
       shapeCtx.fillStyle = "#000";
       shapeCtx.fillRect(0, 0, shapeEditor.width, shapeEditor.height);
+      shapeBaseCtx.setTransform(1, 0, 0, 1, 0, 0);
+      shapeBaseCtx.clearRect(0, 0, SHAPE_TEXTURE_SIZE, SHAPE_TEXTURE_SIZE);
+      shapePaintCtx.setTransform(1, 0, 0, 1, 0, 0);
+      shapePaintCtx.clearRect(0, 0, SHAPE_TEXTURE_SIZE, SHAPE_TEXTURE_SIZE);
+      importedShapeTextureCtx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    function composeShapeLayers() {
+      shapeCtx.setTransform(1, 0, 0, 1, 0, 0);
+      shapeCtx.globalCompositeOperation = "source-over";
+      shapeCtx.fillStyle = "#000";
+      shapeCtx.fillRect(0, 0, shapeEditor.width, shapeEditor.height);
+      shapeCtx.drawImage(shapeBaseLayer, 0, 0);
+      shapeCtx.drawImage(shapePaintLayer, 0, 0);
+      markShapeChanged();
+    }
+
+    function polygonPath(context, sides, radius) {
+      context.beginPath();
+      for (let i = 0; i < sides; i++) {
+        const angle = -Math.PI * 0.5 + i / sides * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        if (i === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      }
+      context.closePath();
+    }
+
+    function starPath(context, points, outerRadius, innerRadius) {
+      context.beginPath();
+      for (let i = 0; i < points * 2; i++) {
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        const angle = -Math.PI * 0.5 + i / (points * 2) * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        if (i === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      }
+      context.closePath();
+    }
+
+    function redrawShapeBase() {
+      shapeBaseCtx.setTransform(1, 0, 0, 1, 0, 0);
+      shapeBaseCtx.clearRect(0, 0, SHAPE_TEXTURE_SIZE, SHAPE_TEXTURE_SIZE);
+      if (currentShapePreset === "custom-image") {
+        drawImportedShapeBase();
+        return;
+      }
+      shapeBaseCtx.save();
+      shapeBaseCtx.translate(SHAPE_TEXTURE_SIZE * 0.5, SHAPE_TEXTURE_SIZE * 0.5);
+      shapeBaseCtx.rotate(params.shapeRotation * Math.PI / 180);
+      const shapeScale = Math.max(0.35, Math.min(1.4, params.shapeScale));
+      shapeBaseCtx.scale(shapeScale, shapeScale);
+      shapeBaseCtx.fillStyle = "#fff";
+      shapeBaseCtx.beginPath();
+
+      if (currentShapePreset === "default") {
+        aperturePath(shapeBaseCtx, 112);
+        shapeBaseCtx.fill();
+      } else if (currentShapePreset === "rectangle") {
+        shapeBaseCtx.rect(-96, -72, 192, 144);
+        shapeBaseCtx.fill();
+      } else if (currentShapePreset === "hexagon") {
+        polygonPath(shapeBaseCtx, 6, 112);
+        shapeBaseCtx.fill();
+      } else if (currentShapePreset === "star") {
+        starPath(shapeBaseCtx, 6, 116, 62);
+        shapeBaseCtx.fill();
+      } else if (currentShapePreset === "anamorphic") {
+        shapeBaseCtx.roundRect(-118, -28, 236, 56, 28);
+        shapeBaseCtx.fill();
+      } else if (currentShapePreset === "ring") {
+        shapeBaseCtx.arc(0, 0, 116, 0, Math.PI * 2);
+        shapeBaseCtx.fill();
+        shapeBaseCtx.globalCompositeOperation = "destination-out";
+        shapeBaseCtx.beginPath();
+        shapeBaseCtx.arc(0, 0, 54, 0, Math.PI * 2);
+        shapeBaseCtx.fill();
+      } else {
+        const radiusX = currentShapePreset === "ellipse" ? 118 : 118;
+        const radiusY = currentShapePreset === "ellipse" ? 76 : 118;
+        shapeBaseCtx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+        shapeBaseCtx.fill();
+      }
+
+      shapeBaseCtx.restore();
+      composeShapeLayers();
+    }
+
+    function drawImportedShapeBase() {
+      shapeBaseCtx.setTransform(1, 0, 0, 1, 0, 0);
+      shapeBaseCtx.clearRect(0, 0, SHAPE_TEXTURE_SIZE, SHAPE_TEXTURE_SIZE);
+      shapeBaseCtx.save();
+      shapeBaseCtx.translate(SHAPE_TEXTURE_SIZE * 0.5, SHAPE_TEXTURE_SIZE * 0.5);
+      shapeBaseCtx.rotate(params.shapeRotation * Math.PI / 180);
+      const shapeScale = Math.max(0.35, Math.min(1.4, params.shapeScale));
+      shapeBaseCtx.scale(shapeScale, shapeScale);
+      shapeBaseCtx.drawImage(importedShapeTextureCanvas, -SHAPE_TEXTURE_SIZE * 0.5, -SHAPE_TEXTURE_SIZE * 0.5);
+      shapeBaseCtx.restore();
+      composeShapeLayers();
     }
 
     function drawShapePreset(preset) {
       currentShapePreset = preset;
-      clearShapeEditor();
-      shapeCtx.fillStyle = "#fff";
-      shapeCtx.beginPath();
-      if (preset === "rectangle") {
-        shapeCtx.rect(32, 56, 192, 144);
-      } else {
-        const radiusX = preset === "ellipse" ? 118 : 118;
-        const radiusY = preset === "ellipse" ? 78 : 118;
-        shapeCtx.ellipse(128, 128, radiusX, radiusY, 0, 0, Math.PI * 2);
-      }
-      shapeCtx.fill();
-      markShapeChanged();
+      shapePaintCtx.setTransform(1, 0, 0, 1, 0, 0);
+      shapePaintCtx.clearRect(0, 0, SHAPE_TEXTURE_SIZE, SHAPE_TEXTURE_SIZE);
+      redrawShapeBase();
     }
 
     function shapeEditorPoint(event) {
@@ -498,26 +722,37 @@
     }
 
     function drawOnShapeEditor(point) {
-      shapeCtx.save();
-      shapeCtx.globalCompositeOperation = "source-over";
-      shapeCtx.strokeStyle = "#fff";
-      shapeCtx.fillStyle = "#fff";
-      shapeCtx.lineWidth = 24;
-      shapeCtx.lineCap = "round";
-      shapeCtx.lineJoin = "round";
-      if (lastShapePoint) {
-        shapeCtx.beginPath();
-        shapeCtx.moveTo(lastShapePoint.x, lastShapePoint.y);
-        shapeCtx.lineTo(point.x, point.y);
-        shapeCtx.stroke();
-      } else {
-        shapeCtx.beginPath();
-        shapeCtx.arc(point.x, point.y, 12, 0, Math.PI * 2);
-        shapeCtx.fill();
+      if (currentShapePreset === "default") {
+        currentShapePreset = "circle";
+        redrawShapeBase();
       }
-      shapeCtx.restore();
+      shapePaintCtx.save();
+      if (currentDrawTool === "erase") {
+        shapePaintCtx.globalCompositeOperation = "destination-out";
+        shapePaintCtx.strokeStyle = "rgba(0, 0, 0, 1)";
+        shapePaintCtx.fillStyle = "rgba(0, 0, 0, 1)";
+      } else {
+        shapePaintCtx.globalCompositeOperation = "source-over";
+        const brushColor = currentDrawTool === "black" ? "#000000" : shapeDrawColor.value;
+        shapePaintCtx.strokeStyle = brushColor;
+        shapePaintCtx.fillStyle = brushColor;
+      }
+      shapePaintCtx.lineWidth = 24;
+      shapePaintCtx.lineCap = "round";
+      shapePaintCtx.lineJoin = "round";
+      if (lastShapePoint) {
+        shapePaintCtx.beginPath();
+        shapePaintCtx.moveTo(lastShapePoint.x, lastShapePoint.y);
+        shapePaintCtx.lineTo(point.x, point.y);
+        shapePaintCtx.stroke();
+      } else {
+        shapePaintCtx.beginPath();
+        shapePaintCtx.arc(point.x, point.y, 12, 0, Math.PI * 2);
+        shapePaintCtx.fill();
+      }
+      shapePaintCtx.restore();
       lastShapePoint = point;
-      markShapeChanged();
+      composeShapeLayers();
     }
 
     function drawCropPreview() {
@@ -579,23 +814,37 @@
       const drawHeight = importedShapeImage.height * imageScale;
       const offsetX = shapeEditor.width * 0.5 - cropState.centerX;
       const offsetY = shapeEditor.height * 0.5 - cropState.centerY;
-      shapeCtx.drawImage(importedShapeImage, offsetX + cropState.centerX - drawWidth * 0.5, offsetY + cropState.centerY - drawHeight * 0.5, drawWidth, drawHeight);
-      const imageData = shapeCtx.getImageData(0, 0, shapeEditor.width, shapeEditor.height);
+      importedShapeTextureCtx.setTransform(1, 0, 0, 1, 0, 0);
+      importedShapeTextureCtx.clearRect(0, 0, SHAPE_TEXTURE_SIZE, SHAPE_TEXTURE_SIZE);
+      importedShapeTextureCtx.drawImage(importedShapeImage, offsetX + cropState.centerX - drawWidth * 0.5, offsetY + cropState.centerY - drawHeight * 0.5, drawWidth, drawHeight);
+      preserveImportedBokehTexture();
+      currentShapePreset = "custom-image";
+      drawImportedShapeBase();
+    }
+
+    function preserveImportedBokehTexture() {
+      const imageData = importedShapeTextureCtx.getImageData(0, 0, SHAPE_TEXTURE_SIZE, SHAPE_TEXTURE_SIZE);
       for (let i = 0; i < imageData.data.length; i += 4) {
         const luminance = Math.max(imageData.data[i], imageData.data[i + 1], imageData.data[i + 2]);
-        imageData.data[i] = luminance;
-        imageData.data[i + 1] = luminance;
-        imageData.data[i + 2] = luminance;
+        if (luminance < 2) {
+          imageData.data[i] = 0;
+          imageData.data[i + 1] = 0;
+          imageData.data[i + 2] = 0;
+        }
         imageData.data[i + 3] = 255;
       }
-      shapeCtx.putImageData(imageData, 0, 0);
-      currentShapePreset = "custom-image";
-      markShapeChanged();
+      importedShapeTextureCtx.putImageData(imageData, 0, 0);
     }
 
     document.querySelectorAll("[data-shape-preset]").forEach(button => {
       button.addEventListener("click", () => {
         drawShapePreset(button.dataset.shapePreset);
+      });
+    });
+
+    document.querySelectorAll("[data-draw-tool]").forEach(button => {
+      button.addEventListener("click", () => {
+        currentDrawTool = button.dataset.drawTool;
       });
     });
 
@@ -667,7 +916,7 @@
       drawCropPreview();
     }, { passive: false });
 
-    drawShapePreset("circle");
+    drawShapePreset("default");
 
     function applyCustomShapeClip(context, radius) {
       context.beginPath();
@@ -675,6 +924,15 @@
       context.clip();
       context.globalCompositeOperation = "destination-in";
       context.drawImage(shapeEditor, -radius, -radius, radius * 2, radius * 2);
+      context.globalCompositeOperation = "lighter";
+    }
+
+    function applyCustomShapeTexture(context, radius, alpha = 1) {
+      context.save();
+      context.globalCompositeOperation = "multiply";
+      context.globalAlpha = Math.max(0, Math.min(1, alpha));
+      context.drawImage(shapeEditor, -radius, -radius, radius * 2, radius * 2);
+      context.restore();
       context.globalCompositeOperation = "lighter";
     }
 
@@ -774,6 +1032,9 @@
         const name = input.dataset.param;
         params[name] = name === "blades" ? Math.round(Number(input.value)) : Number(input.value);
         updateLabels();
+        if (name === "shapeRotation" || name === "shapeScale" || name === "blades" || name === "roundness") {
+          redrawShapeBase();
+        }
       });
     });
 
@@ -783,15 +1044,15 @@
     }
 
     document.querySelector("#preset-cinema").addEventListener("click", () => {
-      applyPreset({ fStop: 1.7, focus: 0.52, blades: 9, roundness: 0.82, scaleX: 1, scaleY: 1, randomness: 0.16, chromatic: 0.18, rimBias: 0.04, exposure: 1.05, bloom: 0.04 });
+      applyPreset({ fStop: 1.7, focus: 0.52, blades: 9, roundness: 0.82, scaleX: 1, scaleY: 1, randomness: 0.16, bokehCount: 56, sizeRandomness: 0.38, overallSize: 1, chromatic: 0.18, rimBias: 0.04, exposure: 1.05, bloom: 0.04, baseHue: 36, colorRandomness: 0.18, opacityRandomness: 0.16 });
     });
 
     document.querySelector("#preset-soap").addEventListener("click", () => {
-      applyPreset({ fStop: 1.35, focus: 0.62, blades: 11, roundness: 0.9, scaleX: 1, scaleY: 1, randomness: 0.5, chromatic: 0.24, rimBias: 0.72, exposure: 0.92, bloom: 0.08 });
+      applyPreset({ fStop: 1.35, focus: 0.62, blades: 11, roundness: 0.9, scaleX: 1, scaleY: 1, randomness: 0.5, bokehCount: 68, sizeRandomness: 0.58, overallSize: 1.16, chromatic: 0.24, rimBias: 0.72, exposure: 0.92, bloom: 0.08, baseHue: 28, colorRandomness: 0.36, opacityRandomness: 0.22 });
     });
 
     document.querySelector("#preset-night").addEventListener("click", () => {
-      applyPreset({ fStop: 2.25, focus: 0.38, blades: 6, roundness: 0.2, scaleX: 1.42, scaleY: 0.72, randomness: 0.18, chromatic: 0.14, rimBias: 0.08, exposure: 1.22, bloom: 0.03 });
+      applyPreset({ fStop: 2.25, focus: 0.38, blades: 6, roundness: 0.2, scaleX: 1.42, scaleY: 0.72, randomness: 0.18, bokehCount: 58, sizeRandomness: 0.38, overallSize: 1.08, chromatic: 0.14, rimBias: 0.08, exposure: 1.22, bloom: 0.03, baseHue: 34, colorRandomness: 0.22, opacityRandomness: 0.18 });
     });
 
     document.querySelector("#shuffle-layout").addEventListener("click", () => {
@@ -809,6 +1070,59 @@
         color[1] + (target[1] - color[1]) * amount,
         color[2] + (target[2] - color[2]) * amount
       ];
+    }
+
+    function hslToRgb(hue, saturation, lightness) {
+      const h = ((hue % 360) + 360) % 360 / 360;
+      const s = Math.max(0, Math.min(1, saturation));
+      const l = Math.max(0, Math.min(1, lightness));
+      if (s === 0) {
+        const gray = l * 255;
+        return [gray, gray, gray];
+      }
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      const hueToChannel = t => {
+        let channel = t;
+        if (channel < 0) channel += 1;
+        if (channel > 1) channel -= 1;
+        if (channel < 1 / 6) return p + (q - p) * 6 * channel;
+        if (channel < 1 / 2) return q;
+        if (channel < 2 / 3) return p + (q - p) * (2 / 3 - channel) * 6;
+        return p;
+      };
+      return [
+        hueToChannel(h + 1 / 3) * 255,
+        hueToChannel(h) * 255,
+        hueToChannel(h - 1 / 3) * 255
+      ];
+    }
+
+    function lightColorNoise(light, salt = 0) {
+      const raw = Math.sin((light.index + 1) * 91.71 + light.textureSeed * 0.113 + salt * 47.37) * 43758.5453;
+      return raw - Math.floor(raw);
+    }
+
+    function resolveLightColor(light) {
+      const colorRandomness = Math.max(0, Math.min(1, params.colorRandomness));
+      const baseColor = hslToRgb(params.baseHue, 0.58, 0.68);
+      if (colorRandomness <= 0.001) return baseColor;
+
+      const sourceColor = mix(baseColor, light.color, Math.min(0.82, 0.22 + colorRandomness * 0.62));
+      const hueJitter = (lightColorNoise(light, 1) - 0.5) * 360 * colorRandomness;
+      const randomHue = params.baseHue + hueJitter + lightColorNoise(light, 2) * 360 * Math.pow(colorRandomness, 2.4);
+      const randomColor = hslToRgb(
+        randomHue,
+        0.42 + lightColorNoise(light, 3) * 0.32,
+        0.52 + lightColorNoise(light, 4) * 0.22
+      );
+      return mix(sourceColor, randomColor, Math.pow(colorRandomness, 1.8) * 0.9);
+    }
+
+    function resolveLightOpacity(light, alpha) {
+      const opacityRandomness = Math.max(0, Math.min(1, params.opacityRandomness));
+      const opacityNoise = 0.55 + lightColorNoise(light, 5) * 0.65;
+      return alpha * (1 + (opacityNoise - 1) * opacityRandomness);
     }
 
     function aperturePath(context, radius) {
@@ -1003,6 +1317,7 @@
       ctx.strokeStyle = rgba(mix(color, [255, 255, 255], 0.24), alpha * (0.004 + edgeAmount * 0.01 + edgeAberration * 0.035));
       aperturePath(ctx, radius * 0.99);
       ctx.stroke();
+      applyCustomShapeTexture(ctx, radius, 0.86);
       applyCustomShapeClip(ctx, radius);
       ctx.restore();
     }
@@ -1109,28 +1424,25 @@
       const dx = (x - width * 0.5) / (width * 0.5);
       const dy = (y - height * 0.48) / (height * 0.5);
       const edgeAmount = Math.min(1, Math.hypot(dx, dy));
-      const focusError = Math.abs(depth - params.focus) / Math.max(depth, 0.18);
-      const apertureScale = 1.8 / params.fStop;
-      const depthGain = light.kind === "ambient" ? 0.74 : light.kind === "street" ? 0.9 : 1;
-      const foregroundBoost = depth > 0.92 ? 1 + (depth - 0.92) * 0.78 : 1;
-      const maxRadius = minDim * (light.kind === "ambient" ? 0.038 : depth > 0.98 ? 0.105 : 0.082);
-      const radius = Math.max(1.7, Math.min(maxRadius, (3.8 + focusError * 72 * apertureScale) * light.size * depthGain * foregroundBoost * (minDim / 900)));
+      const radius = computeBokehRadius(light, minDim);
       const scaleX = Math.max(0.35, Math.min(2, params.scaleX));
       const scaleY = Math.max(0.35, Math.min(2, params.scaleY));
       const fringeAngle = Math.atan2(dy, dx);
       const twinkle = 0.94 + Math.sin(time * 0.7 + phase) * 0.06;
-      const alpha = Math.min(0.92, light.intensity * params.exposure * twinkle * (radius < 7 ? 0.84 : 0.62));
+      const baseAlpha = Math.min(0.92, light.intensity * params.exposure * twinkle * (radius < 7 ? 0.84 : 0.62));
+      const alpha = Math.min(0.94, resolveLightOpacity(light, baseAlpha));
+      const resolvedColor = resolveLightColor(light);
 
-      drawWetReflection(x, y, radius, light.color, alpha, width, height);
+      drawWetReflection(x, y, radius, resolvedColor, alpha, width, height);
 
       if (radius < 5.5) {
-        drawSmallLight(x, y, radius, light.color, alpha);
+        drawSmallLight(x, y, radius, resolvedColor, alpha);
         return;
       }
 
-      drawGlowDisc(x, y, radius, light.color, alpha);
+      drawGlowDisc(x, y, radius, resolvedColor, alpha);
       drawDispersionLayer(x, y, radius, alpha, scaleX, scaleY, fringeAngle, edgeAmount);
-      drawApertureDisc(x, y, radius, light.color, alpha, scaleX, scaleY, edgeAmount);
+      drawApertureDisc(x, y, radius, resolvedColor, alpha, scaleX, scaleY, edgeAmount);
     }
 
     function render(now) {
@@ -1154,7 +1466,8 @@
 
       drawBackground(width, height, time);
       prepareBokehLayers(width, height);
-      const sorted = lights.slice().sort((a, b) => b.depth - a.depth);
+      const activeLightsForFrame = activeLights();
+      const sorted = activeLightsForFrame.slice().sort((a, b) => b.depth - a.depth);
       ctx = bokehCtx;
       for (const light of sorted) {
         drawLight(light, width, height, minDim, time);
@@ -1164,7 +1477,7 @@
 
       ctx.globalCompositeOperation = "source-over";
       ctx.filter = "none";
-      readout.textContent = `${canvas.width} x ${canvas.height}  |  ${lights.length} lights`;
+      readout.textContent = `${canvas.width} x ${canvas.height}  |  ${activeLightsForFrame.length} lights`;
       requestAnimationFrame(render);
     }
 
@@ -1192,26 +1505,24 @@
       const dx = (x - width * 0.5) / (width * 0.5);
       const dy = (y - height * 0.48) / (height * 0.5);
       const edgeAmount = Math.min(1, Math.hypot(dx, dy));
-      const focusError = Math.abs(depth - params.focus) / Math.max(depth, 0.18);
-      const apertureScale = 1.8 / params.fStop;
-      const depthGain = light.kind === "ambient" ? 0.74 : light.kind === "street" ? 0.9 : 1;
-      const foregroundBoost = depth > 0.92 ? 1 + (depth - 0.92) * 0.78 : 1;
-      const maxRadius = minDim * (light.kind === "ambient" ? 0.038 : depth > 0.98 ? 0.105 : 0.082);
-      const radius = Math.max(1.7, Math.min(maxRadius, (3.8 + focusError * 72 * apertureScale) * light.size * depthGain * foregroundBoost * (minDim / 900)));
+      const radius = computeBokehRadius(light, minDim);
       const twinkle = 0.94 + Math.sin(time * 0.7 + phase) * 0.06;
-      const alpha = Math.min(0.92, light.intensity * params.exposure * twinkle * (radius < 7 ? 0.84 : 0.62));
+      const baseAlpha = Math.min(0.92, light.intensity * params.exposure * twinkle * (radius < 7 ? 0.84 : 0.62));
+      const alpha = Math.min(0.94, resolveLightOpacity(light, baseAlpha));
+      const resolvedColor = resolveLightColor(light);
       const centerX = x / width * 2 - 1;
       const centerY = 1 - y / height * 2;
       const scaleX = Math.max(0.35, Math.min(2, params.scaleX));
       const scaleY = Math.max(0.35, Math.min(2, params.scaleY));
+      const axisLength = Math.max(0.001, Math.hypot(dx, dy));
 
       target[offset + 0] = centerX;
       target[offset + 1] = centerY;
       target[offset + 2] = radius * scaleX / width * 2;
       target[offset + 3] = radius * scaleY / height * 2;
-      target[offset + 4] = light.color[0] / 255;
-      target[offset + 5] = light.color[1] / 255;
-      target[offset + 6] = light.color[2] / 255;
+      target[offset + 4] = resolvedColor[0] / 255;
+      target[offset + 5] = resolvedColor[1] / 255;
+      target[offset + 6] = resolvedColor[2] / 255;
       target[offset + 7] = alpha * 0.72;
       target[offset + 8] = Math.max(3, Math.round(params.blades));
       target[offset + 9] = Math.max(0, Math.min(1, params.roundness));
@@ -1219,6 +1530,11 @@
       target[offset + 11] = edgeAmount;
       const bloomAmount = Math.max(0, Math.min(1, params.bloom));
       target[offset + 12] = bloomAmount;
+      target[offset + 13] = Math.max(0, Math.min(1, params.chromatic));
+      target[offset + 14] = dx / axisLength;
+      target[offset + 15] = -dy / axisLength;
+      target[offset + 16] = 0;
+      target[offset + 17] = currentShapePreset === "default" ? 0 : 1;
     }
 
     async function createWebGpuRenderer() {
@@ -1230,7 +1546,7 @@
       if (!webGpuContext) throw new Error("No WebGPU canvas context");
       const format = navigator.gpu.getPreferredCanvasFormat();
       const HDR_TEXTURE_FORMAT = "rgba16float";
-      const instanceStride = 13;
+      const instanceStride = 18;
       const instanceData = new Float32Array(lights.length * instanceStride);
       let hdrBokehTexture = null;
       let hdrBokehView = null;
@@ -1272,6 +1588,8 @@ struct VertexOut {
   @location(1) color: vec4f,
   @location(2) lens: vec4f,
   @location(3) bloom: f32,
+  @location(4) chromaticAxis: vec4f,
+  @location(5) shapeMode: f32,
 };
 @group(0) @binding(0) var shapeMaskSampler: sampler;
 @group(0) @binding(1) var shapeMaskTex: texture_2d<f32>;
@@ -1282,7 +1600,9 @@ fn vs(
   @location(0) centerRadius: vec4f,
   @location(1) colorAlpha: vec4f,
   @location(2) lens: vec4f,
-  @location(3) bloomAmount: f32
+  @location(3) bloomAmount: f32,
+  @location(4) chromaticAxis: vec4f,
+  @location(5) shapeMode: f32
 ) -> VertexOut {
   var quad = array<vec2f, 6>(
     vec2f(-1.45, -1.45),
@@ -1299,6 +1619,8 @@ fn vs(
   out.color = colorAlpha;
   out.lens = lens;
   out.bloom = bloomAmount;
+  out.chromaticAxis = chromaticAxis;
+  out.shapeMode = shapeMode;
   return out;
 }
 
@@ -1315,14 +1637,20 @@ fn apertureMask(local: vec2f, blades: f32, roundness: f32) -> f32 {
   return smoothstep(mixedRadius, mixedRadius * 0.94, r);
 }
 
+fn sampleShape(uv: vec2f) -> vec3f {
+  if (all(uv >= vec2f(0.0)) && all(uv <= vec2f(1.0))) {
+    return textureSampleLevel(shapeMaskTex, shapeMaskSampler, uv, 0.0).rgb;
+  }
+  return vec3f(0.0);
+}
+
 @fragment
 fn fs(input: VertexOut) -> @location(0) vec4f {
   let shapeUv = input.local * 0.5 + vec2f(0.5);
-  var shapeMask = 0.0;
-  if (all(shapeUv >= vec2f(0.0)) && all(shapeUv <= vec2f(1.0))) {
-    shapeMask = textureSampleLevel(shapeMaskTex, shapeMaskSampler, shapeUv, 0.0).r;
-  }
-  let mask = smoothstep(0.02, 0.22, shapeMask);
+  let shapeSample = sampleShape(shapeUv);
+  let textureMask = max(max(shapeSample.r, shapeSample.g), shapeSample.b);
+  let proceduralMask = apertureMask(input.local, input.lens.x, input.lens.y);
+  let mask = select(proceduralMask, textureMask, input.shapeMode > 0.5);
   let r = length(input.local);
   let outerGlow = mask * smoothstep(0.96, 1.0, r) * (1.0 - smoothstep(1.0, 1.16, r)) * input.bloom * 0.09;
   if (mask + outerGlow <= 0.001) { discard; }
@@ -1333,8 +1661,23 @@ fn fs(input: VertexOut) -> @location(0) vec4f {
   let offAxisBloom = pow(clamp(input.lens.w, 0.0, 1.0), 1.6) * input.bloom * 0.08;
   let surfaceTexture = 0.97 + 0.018 * sin(dot(input.local, vec2f(31.0, 17.0)) + input.color.a * 13.0) + 0.012 * sin(atan2(input.local.y, input.local.x) * 11.0 + input.lens.w * 7.0);
   let psf = (mask * (0.34 + centerGain + edgeGain + offAxisBloom) + outerGlow) * surfaceTexture;
+  let dispersion = clamp(input.chromaticAxis.x * pow(clamp(input.lens.w, 0.0, 1.0), 1.25), 0.0, 1.0);
+  let axis = normalize(input.chromaticAxis.yz + vec2f(0.0001, 0.0));
+  let redSample = sampleShape(shapeUv - axis * dispersion * 0.018);
+  let blueSample = sampleShape(shapeUv + axis * dispersion * 0.026);
+  let redTextureMask = max(max(redSample.r, redSample.g), redSample.b);
+  let blueTextureMask = max(max(blueSample.r, blueSample.g), blueSample.b);
+  let redProceduralMask = apertureMask(input.local - axis * dispersion * 0.036, input.lens.x, input.lens.y);
+  let blueProceduralMask = apertureMask(input.local + axis * dispersion * 0.052, input.lens.x, input.lens.y);
+  let redMask = select(redProceduralMask, redTextureMask, input.shapeMode > 0.5);
+  let blueMask = select(blueProceduralMask, blueTextureMask, input.shapeMode > 0.5);
+  let channelMask = mix(vec3f(mask), vec3f(redMask, mask, blueMask), dispersion);
+  let safeMask = max(mask, 0.001);
+  let textureColor = clamp(shapeSample.rgb / vec3f(safeMask), vec3f(0.0), vec3f(2.2));
+  let importedTextureTint = mix(vec3f(1.0), textureColor, smoothstep(0.04, 0.55, mask));
+  let textureTint = select(vec3f(1.0), importedTextureTint, input.shapeMode > 0.5);
   let energy = input.color.a * psf * 3.8;
-  return vec4f(input.color.rgb * energy, energy);
+  return vec4f(input.color.rgb * textureTint * channelMask * energy + input.color.rgb * textureTint * outerGlow * input.color.a * 2.2, energy);
 }
         `
       });
@@ -1409,7 +1752,9 @@ fn fs(input: Out) -> @location(0) vec4f {
               { shaderLocation: 0, offset: 0, format: "float32x4" },
               { shaderLocation: 1, offset: 16, format: "float32x4" },
               { shaderLocation: 2, offset: 32, format: "float32x4" },
-              { shaderLocation: 3, offset: 48, format: "float32" }
+              { shaderLocation: 3, offset: 48, format: "float32" },
+              { shaderLocation: 4, offset: 52, format: "float32x4" },
+              { shaderLocation: 5, offset: 68, format: "float32" }
             ]
           }]
         },
@@ -1496,7 +1841,8 @@ fn fs(input: Out) -> @location(0) vec4f {
         const height = canvas.height;
         const minDim = Math.min(width, height);
         const time = now * 0.001;
-        lights.forEach((light, index) => writeInstanceData(instanceData, index * instanceStride, light, width, height, minDim, time));
+        const activeLightsForFrame = activeLights();
+        activeLightsForFrame.forEach((light, index) => writeInstanceData(instanceData, index * instanceStride, light, width, height, minDim, time));
         device.queue.writeBuffer(instanceBuffer, 0, instanceData);
         uploadShapeMaskTexture();
 
@@ -1512,7 +1858,7 @@ fn fs(input: Out) -> @location(0) vec4f {
         hdrPass.setPipeline(bokehPipeline);
         hdrPass.setBindGroup(0, shapeMaskBindGroup);
         hdrPass.setVertexBuffer(0, instanceBuffer);
-        hdrPass.draw(6, lights.length);
+        hdrPass.draw(6, activeLightsForFrame.length);
         hdrPass.end();
 
         const pass = encoder.beginRenderPass({
@@ -1528,7 +1874,7 @@ fn fs(input: Out) -> @location(0) vec4f {
         pass.draw(3);
         pass.end();
         device.queue.submit([encoder.finish()]);
-        readout.textContent = `${canvas.width} x ${canvas.height}  |  ${lights.length} lights  |  WebGPU HDR`;
+        readout.textContent = `${canvas.width} x ${canvas.height}  |  ${activeLightsForFrame.length} lights  |  WebGPU HDR`;
         requestAnimationFrame(renderWebGpu);
       }
 
