@@ -1474,7 +1474,7 @@
       const phase = light.phase || 0;
       const slowWave = Math.sin(time * 1.4 * animationSpeed + phase);
       const fastWave = Math.sin(time * 4.2 * animationSpeed + phase * 1.37) * 0.34;
-      return 1 + (slowWave + fastWave) * 0.12 * flickerAmount;
+      return Math.max(0.08, 1 + (slowWave + fastWave) * 0.58 * flickerAmount);
     }
 
     function resolveLightColor(light) {
@@ -1802,8 +1802,8 @@
       const scaleY = Math.max(0.35, Math.min(2, params.scaleY));
       const fringeAngle = Math.atan2(dy, dx);
       const twinkle = lightTwinkle(light, time);
-      const baseAlpha = Math.min(0.92, light.intensity * params.exposure * twinkle * (radius < 7 ? 0.84 : 0.62));
-      const alpha = Math.min(0.94, resolveLightOpacity(light, baseAlpha));
+      const baseAlpha = Math.min(0.92, light.intensity * params.exposure * (radius < 7 ? 0.84 : 0.62));
+      const alpha = Math.min(0.94, resolveLightOpacity(light, baseAlpha) * twinkle);
       const resolvedColor = resolveLightColor(light);
 
       drawWetReflection(x, y, radius, resolvedColor, alpha, width, height);
@@ -1879,8 +1879,8 @@
       const edgeAmount = Math.min(1, Math.hypot(dx, dy));
       const radius = computeBokehRadius(light, minDim);
       const twinkle = lightTwinkle(light, time);
-      const baseAlpha = Math.min(0.92, light.intensity * params.exposure * twinkle * (radius < 7 ? 0.84 : 0.62));
-      const alpha = Math.min(0.94, resolveLightOpacity(light, baseAlpha));
+      const baseAlpha = Math.min(0.92, light.intensity * params.exposure * (radius < 7 ? 0.84 : 0.62));
+      const alpha = Math.min(0.94, resolveLightOpacity(light, baseAlpha) * twinkle);
       const resolvedColor = resolveLightColor(light);
       const centerX = x / width * 2 - 1;
       const centerY = 1 - y / height * 2;

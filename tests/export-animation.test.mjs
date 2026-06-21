@@ -13,6 +13,8 @@ assert.match(html, /function lightMotionOffset/, "Per-light motion offsets are d
 assert.match(html, /function lightTwinkle/, "Per-light flicker/twinkle is derived deterministically");
 assert.match(html, /const animationSpeed = Math\.max\(0\.25, Math\.min\(4, params\.motionSpeed\)\)/, "Motion speed is clamped to a previewable physical range");
 assert.match(html, /0\.012 \* motionAmount/, "Motion amplitude is large enough to preview without export");
+assert.match(html, /0\.58 \* flickerAmount/, "Flicker has enough intensity range to survive tone mapping");
+assert.match(html, /resolveLightOpacity\(light, baseAlpha\) \* twinkle/, "Flicker is applied after base alpha clamping so bright lights visibly pulse");
 assert.match(html, /id="export-frame"/, "Single-frame export button is present");
 assert.match(html, /id="export-video"/, "Video export button is present");
 assert.match(html, /function exportFrame/, "Single-frame PNG export is implemented");
