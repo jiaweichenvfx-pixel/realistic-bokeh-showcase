@@ -760,8 +760,9 @@
       const maxSizeRatio = 2;
       const sizeRandomness = Math.max(0, Math.min(1, params.sizeRandomness));
       const apertureScale = 1.8 / params.fStop;
-      const focusLift = 0.86 + Math.abs(params.focus - 0.52) * 0.36;
-      const baseRadius = Math.max(3, minDim * (0.012 + apertureScale * 0.009) * focusLift);
+      const focusError = Math.abs(light.anchorDepth - params.focus);
+      const focusResponse = 0.74 + Math.pow(Math.min(1, focusError / 0.58), 0.9) * 0.96;
+      const baseRadius = Math.max(3, minDim * (0.012 + apertureScale * 0.009) * focusResponse);
       const sizeFactor = 1 + lightSizeNoise(light) * sizeRandomness * (maxSizeRatio - 1);
       const maxRadius = baseRadius * maxSizeRatio;
       const overallSize = Math.max(0.45, Math.min(2.2, params.overallSize));
