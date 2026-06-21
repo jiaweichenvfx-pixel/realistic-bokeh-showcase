@@ -409,7 +409,7 @@
 
     <label class="control">
       <span>Anim Flicker</span>
-      <input data-param="flickerAmount" type="range" min="0" max="1" step="0.01" value="0.55">
+      <input data-param="flickerAmount" type="range" min="0" max="1" step="0.01" value="0.85">
       <span class="value" data-value="flickerAmount"></span>
     </label>
 
@@ -577,7 +577,7 @@
       opacityRandomness: 0.16,
       motionAmount: 0.72,
       motionSpeed: 1.8,
-      flickerAmount: 0.55,
+      flickerAmount: 0.85,
       shapeRotation: 0,
       shapeScale: 1,
       brushSize: 24,
@@ -1312,15 +1312,15 @@
     }
 
     document.querySelector("#preset-cinema").addEventListener("click", () => {
-      applyPreset({ fStop: 1.7, focus: 0.52, blades: 9, roundness: 0.82, scaleX: 1, scaleY: 1, randomness: 0.16, bokehCount: 56, sizeRandomness: 0.38, overallSize: 1, chromatic: 0.18, rimBias: 0.04, exposure: 1.05, bloom: 0.04, baseHue: 36, colorRandomness: 0.18, opacityRandomness: 0.16, motionAmount: 0.72, motionSpeed: 1.8, flickerAmount: 0.55 });
+      applyPreset({ fStop: 1.7, focus: 0.52, blades: 9, roundness: 0.82, scaleX: 1, scaleY: 1, randomness: 0.16, bokehCount: 56, sizeRandomness: 0.38, overallSize: 1, chromatic: 0.18, rimBias: 0.04, exposure: 1.05, bloom: 0.04, baseHue: 36, colorRandomness: 0.18, opacityRandomness: 0.16, motionAmount: 0.72, motionSpeed: 1.8, flickerAmount: 0.85 });
     });
 
     document.querySelector("#preset-soap").addEventListener("click", () => {
-      applyPreset({ fStop: 1.35, focus: 0.62, blades: 11, roundness: 0.9, scaleX: 1, scaleY: 1, randomness: 0.5, bokehCount: 68, sizeRandomness: 0.58, overallSize: 1.16, chromatic: 0.24, rimBias: 0.72, exposure: 0.92, bloom: 0.08, baseHue: 28, colorRandomness: 0.36, opacityRandomness: 0.22, motionAmount: 0.82, motionSpeed: 2.1, flickerAmount: 0.62 });
+      applyPreset({ fStop: 1.35, focus: 0.62, blades: 11, roundness: 0.9, scaleX: 1, scaleY: 1, randomness: 0.5, bokehCount: 68, sizeRandomness: 0.58, overallSize: 1.16, chromatic: 0.24, rimBias: 0.72, exposure: 0.92, bloom: 0.08, baseHue: 28, colorRandomness: 0.36, opacityRandomness: 0.22, motionAmount: 0.82, motionSpeed: 2.1, flickerAmount: 0.92 });
     });
 
     document.querySelector("#preset-night").addEventListener("click", () => {
-      applyPreset({ fStop: 2.25, focus: 0.38, blades: 6, roundness: 0.2, scaleX: 1.42, scaleY: 0.72, randomness: 0.18, bokehCount: 58, sizeRandomness: 0.38, overallSize: 1.08, chromatic: 0.14, rimBias: 0.08, exposure: 1.22, bloom: 0.03, baseHue: 34, colorRandomness: 0.22, opacityRandomness: 0.18, motionAmount: 0.64, motionSpeed: 1.55, flickerAmount: 0.42 });
+      applyPreset({ fStop: 2.25, focus: 0.38, blades: 6, roundness: 0.2, scaleX: 1.42, scaleY: 0.72, randomness: 0.18, bokehCount: 58, sizeRandomness: 0.38, overallSize: 1.08, chromatic: 0.14, rimBias: 0.08, exposure: 1.22, bloom: 0.03, baseHue: 34, colorRandomness: 0.22, opacityRandomness: 0.18, motionAmount: 0.64, motionSpeed: 1.55, flickerAmount: 0.78 });
     });
 
     document.querySelector("#shuffle-layout").addEventListener("click", () => {
@@ -1474,7 +1474,7 @@
       const phase = light.phase || 0;
       const slowWave = Math.sin(time * 1.4 * animationSpeed + phase);
       const fastWave = Math.sin(time * 4.2 * animationSpeed + phase * 1.37) * 0.34;
-      return Math.max(0.08, 1 + (slowWave + fastWave) * 0.58 * flickerAmount);
+      return Math.max(0.02, 1 + (slowWave + fastWave) * 1.15 * flickerAmount);
     }
 
     function resolveLightColor(light) {
