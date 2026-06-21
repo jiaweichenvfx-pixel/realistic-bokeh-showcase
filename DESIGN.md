@@ -28,6 +28,7 @@ The showcase should emphasize these visible lens cues:
 - **Traffic depth cues**: headlight and tail-light pairs follow a vanishing street layout, with many smaller distant sources and only a few large foreground discs.
 - **Wet-road reflections**: lower-frame light sources cast blurred vertical reflections so the showcase reads like a real night-lens photograph instead of floating dots.
 - **Sensor response**: high dynamic range accumulation is compressed by filmic tone mapping.
+- **Custom bokeh masks**: users can draw or import a black-background bokeh image as a 256x256 aperture mask.
 
 ## Physical Model
 
@@ -48,7 +49,22 @@ This is intentionally calibrated for screen space. It preserves the expected rel
 
 ## Rendering Approach
 
-The current implementation target is a self-contained Canvas 2D renderer:
+The current implementation has a WebGPU renderer with a Canvas 2D fallback. The page still runs as a single `index.html` file with no build step.
+
+The WebGPU path:
+
+- defers Canvas 2D context creation so the same canvas can be configured as a WebGPU surface when the browser supports it;
+- streams one instanced quad per procedural light into a vertex buffer each frame;
+- computes a soft aperture point-spread function in WGSL, with aperture shape, rim bias, subtle surface texture, and a shoulder outside the hard aperture edge;
+- uploads a 256x256 editable bokeh mask texture from the in-page shape editor;
+- supports circle, ellipse, and rectangle mask presets, then lets the user draw more detail on top;
+- supports importing black-background bokeh images, previewing a default 1:1 square crop, dragging/zooming the crop, and applying the crop as the active mask;
+- accumulates bokeh energy additively into an `rgba16float` HDR render target instead of blending directly into the display buffer;
+- uses a final tone-map pass to combine a dark night-road background, the HDR bokeh texture, and a filmic response curve;
+- keeps fake single-pass screen-space bloom disabled, because sparse fixed offset samples create four-corner ghosts and broad pure-color patches around small highlights;
+- caps rendering to 1x DPR and 30fps, and skips frames while the document is hidden.
+
+The Canvas fallback:
 
 - draw a set of procedural point lights with depth, color, intensity, and drift;
 - generate those lights from a structured night-street model: paired headlights, paired tail lights, amber streetlight rows, and sparse ambient points;
@@ -62,8 +78,6 @@ The current implementation target is a self-contained Canvas 2D renderer:
 - use additive-style accumulation with `lighter` blending;
 - cap the Canvas fallback to 1x DPR and 30fps by default, and skip heavy rendering while the page is hidden, because multiple open animated tabs can otherwise consume significant CPU/GPU resources;
 - finish with CSS/canvas-level exposure and contrast choices that mimic HDR tone mapping.
-
-Canvas 2D is enough for the first showcase because the goal is the visual result, not a shader architecture. A later WebGPU pass can replace the renderer after the look is proven.
 
 ## Controls
 
@@ -81,13 +95,17 @@ Keep controls compact:
 | Dispersion | Blue-violet channel spill strength |
 | Rim bias | Center-bright vs rim-bright bokeh character |
 | Exposure | Final scene brightness |
+| Bloom | Amount of extra PSF shoulder/glow; zero means fully disabled |
+| Shape editor | Draw, preset, or import a 256x256 bokeh mask |
 
 ## File Layout
 
 ```txt
 bokeh_generate/
 ├── DESIGN.md      # Focused project design
-└── index.html     # Self-contained bokeh showcase
+├── index.html     # Self-contained WebGPU + Canvas bokeh showcase
+├── output/        # Verification screenshots
+└── tests/         # Static regression tests for controls and renderer structure
 ```
 
 ## Acceptance Criteria
