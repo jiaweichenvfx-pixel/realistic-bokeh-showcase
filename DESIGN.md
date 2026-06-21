@@ -60,6 +60,7 @@ The current implementation target is a self-contained Canvas 2D renderer:
 - render low-opacity wet-road reflections for lower-frame light sources;
 - accumulate all bokeh highlights onto a transparent bokeh layer before final composition, then derive a soft bloom layer from that accumulation so overlapping highlights fuse more like exposure instead of independent transparent circles;
 - use additive-style accumulation with `lighter` blending;
+- cap the Canvas fallback to 1x DPR and 30fps by default, and skip heavy rendering while the page is hidden, because multiple open animated tabs can otherwise consume significant CPU/GPU resources;
 - finish with CSS/canvas-level exposure and contrast choices that mimic HDR tone mapping.
 
 Canvas 2D is enough for the first showcase because the goal is the visual result, not a shader architecture. A later WebGPU pass can replace the renderer after the look is proven.
