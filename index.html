@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Physically Realistic Bokeh Showcase</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020203;
+      color: #f4f0e8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(44, 38, 48, 0.34), transparent 54%),
+        linear-gradient(180deg, #050507, #010102 62%, #000);
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .panel {
+      position: fixed;
+      left: 24px;
+      top: 24px;
+      width: min(340px, calc(100vw - 48px));
+      padding: 18px 18px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 8px;
+      background: rgba(10, 11, 13, 0.62);
+      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(18px);
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 680;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 0 0 16px;
+      color: rgba(244, 240, 232, 0.66);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .control {
+      display: grid;
+      grid-template-columns: 88px 1fr 48px;
+      gap: 10px;
+      align-items: center;
+      min-height: 34px;
+      color: rgba(244, 240, 232, 0.82);
+      font-size: 12px;
+    }
+
+    .control + .control {
+      margin-top: 8px;
+    }
+
+    .value {
+      color: rgba(244, 240, 232, 0.58);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #f0d28a;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    button {
+      flex: 1 1 auto;
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #f4f0e8;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.13);
+    }
+
+    .readout {
+      position: fixed;
+      right: 24px;
+      bottom: 22px;
+      color: rgba(244, 240, 232, 0.5);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      text-shadow: 0 1px 12px rgba(0, 0, 0, 0.8);
+    }
+
+    @media (max-width: 720px) {
+      .panel {
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        width: auto;
+        padding: 14px;
+      }
+
+      .control {
+        grid-template-columns: 74px 1fr 42px;
+      }
+
+      .readout {
+        right: 14px;
+        bottom: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="Realistic bokeh rendering"></canvas>
+
+  <section class="panel" aria-label="Lens controls">
+    <h1>Realistic Bokeh</h1>
+    <p class="subtitle">Thin-lens scale, aperture SDF, direct X/Y bokeh scaling, optical dispersion, and filmic exposure.</p>
+
+    <label class="control">
+      <span>f-stop</span>
+      <input data-param="fStop" type="range" min="1" max="8" step="0.05" value="1.7">
+      <span class="value" data-value="fStop"></span>
+    </label>
+
+    <label class="control">
+      <span>Focus</span>
+      <input data-param="focus" type="range" min="0.2" max="1" step="0.01" value="0.52">
+      <span class="value" data-value="focus"></span>
+    </label>
+
+    <label class="control">
+      <span>Blades</span>
+      <input data-param="blades" type="range" min="3" max="12" step="1" value="9">
+      <span class="value" data-value="blades"></span>
+    </label>
+
+    <label class="control">
+      <span>Roundness</span>
+      <input data-param="roundness" type="range" min="0" max="1" step="0.01" value="0.82">
+      <span class="value" data-value="roundness"></span>
+    </label>
+
+    <label class="control">
+      <span>X Scale</span>
+      <input data-param="scaleX" type="range" min="0.35" max="2" step="0.01" value="1">
+      <span class="value" data-value="scaleX"></span>
+    </label>
+
+    <label class="control">
+      <span>Y Scale</span>
+      <input data-param="scaleY" type="range" min="0.35" max="2" step="0.01" value="1">
+      <span class="value" data-value="scaleY"></span>
+    </label>
+
+    <label class="control">
+      <span>Randomness</span>
+      <input data-param="randomness" type="range" min="0" max="1" step="0.01" value="0.28">
+      <span class="value" data-value="randomness"></span>
+    </label>
+
+    <label class="control">
+      <span>Dispersion</span>
+      <input data-param="chromatic" type="range" min="0" max="1" step="0.01" value="0.18">
+      <span class="value" data-value="chromatic"></span>
+    </label>
+
+    <label class="control">
+      <span>Rim bias</span>
+      <input data-param="rimBias" type="range" min="-1" max="1" step="0.01" value="0.04">
+      <span class="value" data-value="rimBias"></span>
+    </label>
+
+    <label class="control">
+      <span>Exposure</span>
+      <input data-param="exposure" type="range" min="0.25" max="1.8" step="0.01" value="1.05">
+      <span class="value" data-value="exposure"></span>
+    </label>
+
+    <div class="actions">
+      <button id="preset-cinema" type="button">Cinema</button>
+      <button id="preset-soap" type="button">Soap bubble</button>
+      <button id="preset-night" type="button">Night street</button>
+      <button id="shuffle-layout" type="button">Shuffle</button>
+    </div>
+  </section>
+
+  <div class="readout" id="readout"></div>
+
+  <script>
+    const canvas = document.querySelector("#scene");
+    let ctx = canvas.getContext("2d", { alpha: false });
+    const mainCtx = ctx;
+    const readout = document.querySelector("#readout");
+    const bokehLayer = document.createElement("canvas");
+    const bokehCtx = bokehLayer.getContext("2d", { alpha: true });
+    const bloomLayer = document.createElement("canvas");
+    const bloomCtx = bloomLayer.getContext("2d", { alpha: true });
+
+    const params = {
+      fStop: 1.7,
+      focus: 0.52,
+      blades: 9,
+      roundness: 0.82,
+      scaleX: 1,
+      scaleY: 1,
+      randomness: 0.16,
+      chromatic: 0.18,
+      rimBias: 0.04,
+      exposure: 1.05
+    };
+
+    const formatters = {
+      fStop: value => `f/${value.toFixed(1)}`,
+      focus: value => value.toFixed(2),
+      blades: value => String(Math.round(value)),
+      roundness: value => `${Math.round(value * 100)}%`,
+      scaleX: value => `${value.toFixed(2)}x`,
+      scaleY: value => `${value.toFixed(2)}x`,
+      randomness: value => `${Math.round(value * 100)}%`,
+      chromatic: value => `${Math.round(value * 100)}%`,
+      rimBias: value => value.toFixed(2),
+      exposure: value => `${value.toFixed(2)}x`
+    };
+
+    const warm = [244, 176, 95];
+    const sodium = [236, 128, 62];
+    const red = [205, 48, 38];
+    const coolWhite = [220, 228, 226];
+    const white = [246, 226, 188];
+
+    function seededRandom(seed) {
+      let state = seed >>> 0;
+      return () => {
+        state = (state * 1664525 + 1013904223) >>> 0;
+        return state / 4294967296;
+      };
+    }
+
+    function createTrafficLights(seed) {
+      const rand = seededRandom(seed);
+      const lights = [];
+
+      function pick(list) {
+        return list[Math.floor(rand() * list.length)];
+      }
+
+      function addLight(light) {
+        lights.push({
+          phase: rand() * Math.PI * 2,
+          drift: 0.035 + rand() * 0.075,
+          textureSeed: rand() * 1000,
+          ...light
+        });
+      }
+
+      function addPair(kind, centerX, y, spacing, depth, color, intensity, size) {
+        const lean = (rand() - 0.5) * spacing * 0.22;
+        addLight({ kind, x: centerX - spacing * 0.5, y: y - lean, depth, color, intensity: intensity * (0.9 + rand() * 0.16), size });
+        addLight({ kind, x: centerX + spacing * 0.5, y: y + lean, depth: depth + (rand() - 0.5) * 0.025, color, intensity: intensity * (0.9 + rand() * 0.16), size: size * (0.92 + rand() * 0.13) });
+      }
+
+      for (let i = 0; i < 11; i++) {
+        const t = i / 10;
+        const y = 0.18 + t * 0.42 + (rand() - 0.5) * 0.018;
+        const spread = 0.14 + t * 0.44;
+        const depth = 0.18 + t * 0.55;
+        const size = 0.22 + t * 0.38;
+        const intensity = 0.34 + t * 0.46;
+        const color = pick([sodium, sodium, sodium, warm]);
+        addLight({ kind: "street", x: 0.5 - spread + (rand() - 0.5) * 0.018, y, depth, color, intensity, size });
+        if (i > 1 && i < 10) {
+          addLight({ kind: "street", x: 0.5 + spread + (rand() - 0.5) * 0.018, y: y + (rand() - 0.5) * 0.014, depth, color, intensity: intensity * 0.86, size: size * 0.94 });
+        }
+      }
+
+      for (let i = 0; i < 14; i++) {
+        const t = i / 13;
+        const y = 0.34 + Math.pow(t, 1.18) * 0.42 + (rand() - 0.5) * 0.025;
+        const lane = rand() < 0.56 ? -1 : 1;
+        const centerX = 0.54 + lane * (0.035 + Math.pow(t, 1.35) * 0.18) + (rand() - 0.5) * (0.018 + t * 0.028);
+        const spacing = 0.01 + t * 0.042;
+        const depth = 0.28 + Math.pow(t, 1.25) * 0.68;
+        const color = pick([white, white, white, warm, coolWhite]);
+        addPair("headlight", centerX, y, spacing, depth, color, 0.72 + t * 0.82, 0.24 + t * 0.42);
+      }
+
+      for (let i = 0; i < 12; i++) {
+        const t = i / 11;
+        const y = 0.43 + Math.pow(t, 1.1) * 0.38 + (rand() - 0.5) * 0.026;
+        const centerX = 0.49 + (rand() < 0.5 ? -1 : 1) * (0.03 + Math.pow(t, 1.2) * 0.15) + (rand() - 0.5) * 0.06;
+        const spacing = 0.01 + t * 0.038;
+        const depth = 0.34 + Math.pow(t, 1.15) * 0.62;
+        addPair("tail", centerX, y, spacing, depth, red, 0.5 + t * 0.58, 0.2 + t * 0.36);
+      }
+
+      const foreground = [
+        { kind: "headlight", x: 0.34, y: 0.68, depth: 1.1, color: white, intensity: 1.16, size: 0.72 },
+        { kind: "headlight", x: 0.4, y: 0.7, depth: 1.06, color: warm, intensity: 1.02, size: 0.62 },
+        { kind: "tail", x: 0.76, y: 0.69, depth: 1.0, color: red, intensity: 0.86, size: 0.6 },
+        { kind: "street", x: 0.9, y: 0.43, depth: 0.7, color: sodium, intensity: 0.74, size: 0.54 }
+      ];
+      foreground.forEach(addLight);
+
+      for (let i = 0; i < 28; i++) {
+        const side = rand() < 0.5 ? -1 : 1;
+        const horizonT = Math.pow(rand(), 1.8);
+        const y = 0.2 + horizonT * 0.54;
+        const roadSpread = 0.06 + horizonT * 0.46;
+        const x = clamp(0.5 + side * roadSpread * (0.35 + rand() * 0.75) + (rand() - 0.5) * 0.045, 0.04, 0.96);
+        const depth = 0.18 + horizonT * 0.78;
+        const color = pick([warm, warm, warm, sodium, sodium, white, red, red, coolWhite]);
+        addLight({
+          kind: "ambient",
+          x,
+          y,
+          depth,
+          color,
+          intensity: 0.16 + rand() * 0.3,
+          size: 0.12 + Math.pow(rand(), 2.2) * 0.3
+        });
+      }
+
+      return lights;
+    }
+
+    const lights = createTrafficLights(9461);
+
+    lights.forEach((light, index) => {
+      light.index = index;
+      light.anchorX = light.x;
+      light.anchorY = light.y;
+      light.anchorDepth = light.depth;
+    });
+
+    let layoutSeed = 9461;
+    let randomizedLayout = [];
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function resizeLayer(layer, layerCtx, width, height) {
+      if (layer.width !== width || layer.height !== height) {
+        layer.width = width;
+        layer.height = height;
+      }
+      layerCtx.setTransform(1, 0, 0, 1, 0, 0);
+      layerCtx.globalCompositeOperation = "source-over";
+      layerCtx.globalAlpha = 1;
+      layerCtx.filter = "none";
+      layerCtx.clearRect(0, 0, width, height);
+    }
+
+    function prepareBokehLayers(width, height) {
+      resizeLayer(bokehLayer, bokehCtx, width, height);
+      resizeLayer(bloomLayer, bloomCtx, width, height);
+    }
+
+    function compositeBokehLayer(width, height) {
+      const softBlur = Math.max(0.25, Math.min(0.7, Math.min(width, height) * 0.00055));
+      const bloomBlur = Math.max(4.5, Math.min(14, Math.min(width, height) * 0.008));
+
+      bloomCtx.save();
+      bloomCtx.globalCompositeOperation = "source-over";
+      bloomCtx.globalAlpha = 0.34;
+      bloomCtx.filter = `blur(${bloomBlur}px) brightness(1.16)`;
+      bloomCtx.drawImage(bokehLayer, 0, 0);
+      bloomCtx.restore();
+      bloomCtx.filter = "none";
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.24;
+      ctx.drawImage(bloomLayer, 0, 0);
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.98;
+      ctx.filter = `blur(${softBlur}px) brightness(0.98)`;
+      ctx.drawImage(bokehLayer, 0, 0);
+      ctx.restore();
+      ctx.filter = "none";
+    }
+
+    function rebuildRandomizedLayout() {
+      const layoutRand = seededRandom(layoutSeed);
+      randomizedLayout = lights.map(light => {
+        const laneBias = layoutRand();
+        const radial = Math.sqrt(layoutRand());
+        const angle = layoutRand() * Math.PI * 2;
+        const frameX = laneBias < 0.5
+          ? 0.06 + layoutRand() * 0.88
+          : 0.5 + Math.cos(angle) * radial * 0.44;
+        const frameY = laneBias < 0.5
+          ? 0.18 + layoutRand() * 0.64
+          : 0.48 + Math.sin(angle) * radial * 0.34;
+        return {
+          x: clamp(frameX, 0.04, 0.96),
+          y: clamp(frameY, 0.14, 0.86),
+          depth: clamp(light.anchorDepth + (layoutRand() - 0.5) * 0.38, 0.12, 1.08)
+        };
+      });
+    }
+
+    rebuildRandomizedLayout();
+
+    function resize() {
+      const ratio = Math.min(window.devicePixelRatio || 1, 1.35);
+      const width = Math.floor(window.innerWidth * ratio);
+      const height = Math.floor(window.innerHeight * ratio);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+    }
+
+    function updateLabels() {
+      for (const [name, value] of Object.entries(params)) {
+        const input = document.querySelector(`[data-param="${name}"]`);
+        const label = document.querySelector(`[data-value="${name}"]`);
+        if (input && Number(input.value) !== value) input.value = value;
+        if (label) label.textContent = formatters[name](value);
+      }
+    }
+
+    document.querySelectorAll("[data-param]").forEach(input => {
+      input.addEventListener("input", () => {
+        const name = input.dataset.param;
+        params[name] = name === "blades" ? Math.round(Number(input.value)) : Number(input.value);
+        updateLabels();
+      });
+    });
+
+    function applyPreset(next) {
+      Object.assign(params, next);
+      updateLabels();
+    }
+
+    document.querySelector("#preset-cinema").addEventListener("click", () => {
+      applyPreset({ fStop: 1.7, focus: 0.52, blades: 9, roundness: 0.82, scaleX: 1, scaleY: 1, randomness: 0.16, chromatic: 0.18, rimBias: 0.04, exposure: 1.05 });
+    });
+
+    document.querySelector("#preset-soap").addEventListener("click", () => {
+      applyPreset({ fStop: 1.35, focus: 0.62, blades: 11, roundness: 0.9, scaleX: 1, scaleY: 1, randomness: 0.5, chromatic: 0.24, rimBias: 0.72, exposure: 0.92 });
+    });
+
+    document.querySelector("#preset-night").addEventListener("click", () => {
+      applyPreset({ fStop: 2.25, focus: 0.38, blades: 6, roundness: 0.2, scaleX: 1.42, scaleY: 0.72, randomness: 0.18, chromatic: 0.14, rimBias: 0.08, exposure: 1.22 });
+    });
+
+    document.querySelector("#shuffle-layout").addEventListener("click", () => {
+      layoutSeed = (layoutSeed * 1664525 + 1013904223) >>> 0;
+      rebuildRandomizedLayout();
+    });
+
+    function rgba(color, alpha) {
+      return `rgba(${Math.round(color[0])}, ${Math.round(color[1])}, ${Math.round(color[2])}, ${alpha})`;
+    }
+
+    function mix(color, target, amount) {
+      return [
+        color[0] + (target[0] - color[0]) * amount,
+        color[1] + (target[1] - color[1]) * amount,
+        color[2] + (target[2] - color[2]) * amount
+      ];
+    }
+
+    function aperturePath(context, radius) {
+      const sides = Math.max(3, Math.round(params.blades));
+      const roundness = Math.max(0, Math.min(1, params.roundness));
+      if (roundness > 0.94) {
+        context.beginPath();
+        context.arc(0, 0, radius, 0, Math.PI * 2);
+        return;
+      }
+
+      const points = [];
+      const rotation = -Math.PI / 2 + Math.PI / sides;
+      for (let i = 0; i < sides; i++) {
+        const a = rotation + i * Math.PI * 2 / sides;
+        points.push([Math.cos(a) * radius, Math.sin(a) * radius]);
+      }
+
+      context.beginPath();
+      for (let i = 0; i < sides; i++) {
+        const prev = points[(i - 1 + sides) % sides];
+        const current = points[i];
+        const next = points[(i + 1) % sides];
+        const inset = roundness * 0.46;
+        const start = [
+          current[0] + (prev[0] - current[0]) * inset,
+          current[1] + (prev[1] - current[1]) * inset
+        ];
+        const end = [
+          current[0] + (next[0] - current[0]) * inset,
+          current[1] + (next[1] - current[1]) * inset
+        ];
+        if (i === 0) context.moveTo(start[0], start[1]);
+        context.quadraticCurveTo(current[0], current[1], end[0], end[1]);
+      }
+      context.closePath();
+    }
+
+    function drawBackground(width, height, time) {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.filter = "none";
+      const bg = ctx.createLinearGradient(0, 0, 0, height);
+      bg.addColorStop(0, "#030407");
+      bg.addColorStop(0.48, "#060407");
+      bg.addColorStop(1, "#010102");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+
+      const vignette = ctx.createRadialGradient(width * 0.48, height * 0.42, 0, width * 0.5, height * 0.5, Math.max(width, height) * 0.72);
+      vignette.addColorStop(0, "rgba(45, 35, 46, 0.3)");
+      vignette.addColorStop(0.56, "rgba(12, 10, 14, 0.12)");
+      vignette.addColorStop(1, "rgba(0, 0, 0, 0.78)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.globalAlpha = 0.28;
+      const road = ctx.createLinearGradient(0, height * 0.34, 0, height);
+      road.addColorStop(0, "rgba(0, 0, 0, 0)");
+      road.addColorStop(1, "rgba(56, 42, 30, 0.22)");
+      ctx.fillStyle = road;
+      ctx.fillRect(0, height * 0.34, width, height * 0.66);
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = 0.02;
+      ctx.fillStyle = "#fff5d6";
+      for (let i = 0; i < 240; i++) {
+        const x = (Math.sin(i * 12.9898) * 43758.5453) % 1;
+        const y = (Math.sin(i * 78.233) * 19341.117) % 1;
+        ctx.fillRect(Math.abs(x) * width, Math.abs(y) * height, 1, 1);
+      }
+      ctx.restore();
+
+      drawDefocusedBackdrop(width, height, time);
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 18; i++) {
+        const x = width * (0.12 + ((i * 37) % 100) / 130);
+        const y = height * (0.18 + ((i * 19) % 70) / 160);
+        const pulse = 0.65 + 0.35 * Math.sin(time * 0.6 + i);
+        ctx.fillStyle = rgba(i % 3 === 0 ? coolWhite : warm, 0.06 * pulse);
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(1.2, width * 0.0015), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawDefocusedBackdrop(width, height, time) {
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.filter = `blur(${Math.max(10, width * 0.008)}px)`;
+      ctx.globalAlpha = 0.42;
+
+      const rows = [
+        { y: 0.29, count: 6, spread: 0.54, start: 0.28, size: 0.018, color: warm },
+        { y: 0.42, count: 8, spread: 0.72, start: 0.18, size: 0.024, color: sodium },
+        { y: 0.58, count: 5, spread: 0.58, start: 0.33, size: 0.028, color: red }
+      ];
+
+      for (const row of rows) {
+        for (let i = 0; i < row.count; i++) {
+          const wave = Math.sin(time * 0.16 + i * 1.7) * 0.008;
+          const x = width * (row.start + (i / Math.max(1, row.count - 1)) * row.spread + wave);
+          const y = height * (row.y + Math.sin(i * 2.31) * 0.025);
+          const r = Math.max(12, width * row.size * (0.72 + (i % 4) * 0.12));
+          const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0, rgba(mix(row.color, [255, 248, 220], 0.35), 0.42));
+          g.addColorStop(0.48, rgba(row.color, 0.18));
+          g.addColorStop(1, rgba(row.color, 0));
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.filter = `blur(${Math.max(6, width * 0.005)}px)`;
+      ctx.globalAlpha = 0.18;
+      for (let i = 0; i < 9; i++) {
+        const x = width * (0.15 + i * 0.06);
+        const y = height * (0.72 + Math.sin(i) * 0.05);
+        const w = width * (0.025 + (i % 3) * 0.014);
+        const h = height * (0.08 + (i % 4) * 0.025);
+        const color = i % 4 === 0 ? red : i % 3 === 0 ? warm : sodium;
+        const reflection = ctx.createLinearGradient(x, y - h, x, y + h);
+        reflection.addColorStop(0, rgba(color, 0));
+        reflection.addColorStop(0.35, rgba(color, 0.25));
+        reflection.addColorStop(1, rgba(color, 0));
+        ctx.fillStyle = reflection;
+        ctx.fillRect(x - w * 0.5, y - h, w, h * 2);
+      }
+
+      ctx.restore();
+      ctx.filter = "none";
+    }
+
+    function drawGlowDisc(x, y, radius, color, strength) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.filter = `blur(${Math.max(7, radius * 0.26)}px)`;
+      ctx.fillStyle = rgba(mix(color, [255, 238, 205], 0.16), 0.12 * strength);
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.filter = "none";
+      ctx.restore();
+    }
+
+    function drawApertureDisc(x, y, radius, color, alpha, scaleX, scaleY, edgeAmount) {
+      const rim = Math.max(-1, Math.min(1, params.rimBias));
+      const centerAberration = Math.max(0, -rim);
+      const edgeAberration = Math.max(0, rim);
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scaleX, scaleY);
+      aperturePath(ctx, radius);
+      ctx.clip();
+
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = rgba(color, alpha * (0.18 + edgeAberration * 0.03));
+      ctx.beginPath();
+      aperturePath(ctx, radius * 0.965);
+      ctx.fill();
+
+      const grad = ctx.createRadialGradient(-radius * 0.04, -radius * 0.06, radius * 0.1, 0, 0, radius);
+      grad.addColorStop(0, rgba(mix(color, [255, 247, 224], 0.18), alpha * centerAberration * 0.22));
+      grad.addColorStop(0.42, rgba(color, alpha * 0.018));
+      grad.addColorStop(0.74, rgba(color, alpha * 0.026));
+      grad.addColorStop(0.91, rgba(mix(color, [255, 255, 255], 0.12), alpha * edgeAberration * 0.16));
+      grad.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = grad;
+      ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+
+      const onionStrength = Math.min(0.022, alpha * (0.003 + edgeAberration * 0.006 + radius / 6400));
+      ctx.lineWidth = Math.max(0.45, radius * 0.006);
+      ctx.strokeStyle = rgba(mix(color, [255, 248, 226], 0.42), onionStrength);
+      for (let i = 0; i < 3; i++) {
+        const ringRadius = radius * (0.32 + i * 0.19 + Math.sin((i + 1) * 1.7 + radius * 0.013) * 0.012);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, ringRadius, ringRadius * (0.985 + i * 0.004), 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.lineWidth = Math.max(0.7, radius * 0.01);
+      ctx.strokeStyle = rgba(mix(color, [255, 255, 255], 0.24), alpha * (0.004 + edgeAmount * 0.01 + edgeAberration * 0.035));
+      aperturePath(ctx, radius * 0.99);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawSmallLight(x, y, radius, color, alpha) {
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 3.2);
+      glow.addColorStop(0, rgba(mix(color, [255, 248, 224], 0.25), Math.min(0.8, alpha)));
+      glow.addColorStop(0.35, rgba(color, alpha * 0.28));
+      glow.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 3.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = rgba(mix(color, [255, 250, 230], 0.42), Math.min(0.72, alpha * 0.58));
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(1.2, radius * 0.54), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawWetReflection(x, y, radius, color, alpha, width, height) {
+      if (y < height * 0.46 || radius < 3) return;
+      const reflectionHeight = radius * (2.4 + (y / height) * 2.2);
+      const reflectionWidth = Math.max(3, radius * 0.44);
+      const top = y + radius * 0.45;
+      const roadFade = Math.min(1, (y / height - 0.42) / 0.44);
+
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.filter = `blur(${Math.max(2, radius * 0.18)}px)`;
+      ctx.globalAlpha = Math.min(0.42, alpha * 0.28 * roadFade);
+      const reflection = ctx.createLinearGradient(x, top, x, top + reflectionHeight);
+      reflection.addColorStop(0, rgba(mix(color, [255, 236, 205], 0.16), 0.5));
+      reflection.addColorStop(0.38, rgba(color, 0.2));
+      reflection.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = reflection;
+      ctx.beginPath();
+      ctx.ellipse(x, top + reflectionHeight * 0.42, reflectionWidth, reflectionHeight * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.filter = `blur(${Math.max(1, radius * 0.06)}px)`;
+      ctx.globalAlpha = Math.min(0.22, alpha * 0.16 * roadFade);
+      ctx.fillStyle = rgba(mix(color, [255, 245, 220], 0.28), 0.55);
+      ctx.fillRect(x - reflectionWidth * 0.22, top, reflectionWidth * 0.44, reflectionHeight * 0.68);
+      ctx.restore();
+      ctx.filter = "none";
+    }
+
+    function drawDispersionLayer(x, y, radius, alpha, scaleX, scaleY, fringeAngle, edgeAmount) {
+      const amount = Math.max(0, Math.min(1, params.chromatic));
+      if (amount < 0.01 || radius < 6 || edgeAmount < 0.14) return;
+
+      const offAxis = Math.pow(edgeAmount, 1.55);
+      const channelShift = radius * amount * offAxis * 0.055;
+      const nx = Math.cos(fringeAngle);
+      const ny = Math.sin(fringeAngle);
+
+      ctx.save();
+      ctx.translate(x + nx * channelShift, y + ny * channelShift);
+      ctx.scale(scaleX, scaleY);
+      ctx.globalCompositeOperation = "screen";
+      ctx.filter = `blur(${Math.max(0.5, radius * 0.012)}px)`;
+
+      const dispersionRadius = radius * (1 + amount * offAxis * 0.045);
+      aperturePath(ctx, dispersionRadius);
+      ctx.clip();
+
+      const blue = [142, 172, 255];
+      const violet = [118, 120, 232];
+      const dispersionAlpha = Math.min(0.34, alpha * amount * offAxis * 0.72);
+      const grad = ctx.createRadialGradient(
+        -nx * radius * 0.28,
+        -ny * radius * 0.28,
+        radius * 0.24,
+        0,
+        0,
+        dispersionRadius
+      );
+      grad.addColorStop(0, rgba(blue, 0));
+      grad.addColorStop(0.62, rgba(blue, dispersionAlpha * 0.22));
+      grad.addColorStop(0.86, rgba(blue, dispersionAlpha));
+      grad.addColorStop(1, rgba(violet, dispersionAlpha * 0.18));
+      ctx.fillStyle = grad;
+      ctx.fillRect(-dispersionRadius, -dispersionRadius, dispersionRadius * 2, dispersionRadius * 2);
+
+      ctx.restore();
+      ctx.filter = "none";
+    }
+
+    function drawLight(light, width, height, minDim, time) {
+      const drift = light.drift || 0.1;
+      const phase = light.phase || 0;
+      const layout = randomizedLayout[light.index] || light;
+      const randomAmount = Math.max(0, Math.min(1, params.randomness));
+      const baseX = lerp(light.anchorX, layout.x, randomAmount);
+      const baseY = lerp(light.anchorY, layout.y, randomAmount);
+      const depth = lerp(light.anchorDepth, layout.depth, randomAmount);
+      const x = width * (baseX + Math.sin(time * drift + phase) * 0.0028);
+      const y = height * (baseY + Math.cos(time * drift * 0.7 + phase) * 0.0022);
+      const dx = (x - width * 0.5) / (width * 0.5);
+      const dy = (y - height * 0.48) / (height * 0.5);
+      const edgeAmount = Math.min(1, Math.hypot(dx, dy));
+      const focusError = Math.abs(depth - params.focus) / Math.max(depth, 0.18);
+      const apertureScale = 1.8 / params.fStop;
+      const depthGain = light.kind === "ambient" ? 0.74 : light.kind === "street" ? 0.9 : 1;
+      const foregroundBoost = depth > 0.92 ? 1 + (depth - 0.92) * 0.78 : 1;
+      const maxRadius = minDim * (light.kind === "ambient" ? 0.038 : depth > 0.98 ? 0.105 : 0.082);
+      const radius = Math.max(1.7, Math.min(maxRadius, (3.8 + focusError * 72 * apertureScale) * light.size * depthGain * foregroundBoost * (minDim / 900)));
+      const scaleX = Math.max(0.35, Math.min(2, params.scaleX));
+      const scaleY = Math.max(0.35, Math.min(2, params.scaleY));
+      const fringeAngle = Math.atan2(dy, dx);
+      const twinkle = 0.94 + Math.sin(time * 0.7 + phase) * 0.06;
+      const alpha = Math.min(0.92, light.intensity * params.exposure * twinkle * (radius < 7 ? 0.84 : 0.62));
+
+      drawWetReflection(x, y, radius, light.color, alpha, width, height);
+
+      if (radius < 5.5) {
+        drawSmallLight(x, y, radius, light.color, alpha);
+        return;
+      }
+
+      drawGlowDisc(x, y, radius, light.color, alpha);
+      drawDispersionLayer(x, y, radius, alpha, scaleX, scaleY, fringeAngle, edgeAmount);
+      drawApertureDisc(x, y, radius, light.color, alpha, scaleX, scaleY, edgeAmount);
+    }
+
+    function render(now) {
+      ctx = mainCtx;
+      resize();
+      const width = canvas.width;
+      const height = canvas.height;
+      const minDim = Math.min(width, height);
+      const time = now * 0.001;
+
+      drawBackground(width, height, time);
+      prepareBokehLayers(width, height);
+      const sorted = lights.slice().sort((a, b) => b.depth - a.depth);
+      ctx = bokehCtx;
+      for (const light of sorted) {
+        drawLight(light, width, height, minDim, time);
+      }
+      ctx = mainCtx;
+      compositeBokehLayer(width, height);
+
+      ctx.globalCompositeOperation = "source-over";
+      ctx.filter = "none";
+      readout.textContent = `${canvas.width} x ${canvas.height}  |  ${lights.length} lights`;
+      requestAnimationFrame(render);
+    }
+
+    updateLabels();
+    resize();
+    requestAnimationFrame(render);
+    window.addEventListener("resize", resize);
+  </script>
+</body>
+</html>
