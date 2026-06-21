@@ -20,6 +20,11 @@ assert.match(html, /id="shape-draw-color"/, "Free drawing can choose brush color
 assert.match(html, /data-draw-tool="paint"/, "Free drawing includes a paint tool");
 assert.match(html, /data-draw-tool="black"/, "Free drawing can paint black energy-blocking texture");
 assert.match(html, /data-draw-tool="erase"/, "Free drawing includes an eraser tool");
+assert.match(html, /id="shape-edit-large"/, "Shape editor can open a larger drawing workspace");
+assert.match(html, /id="shape-workspace"/, "Large drawing workspace is present");
+assert.match(html, /<canvas id="shape-editor-large"/, "Large drawing workspace has an enlarged canvas");
+assert.doesNotMatch(html, /<div class="draw-tools"/, "Brush tools stay inside the Edit workspace instead of cluttering the main panel");
+assert.match(html, /--shape-workspace-size:\s*min\(720px/, "Large drawing workspace provides a materially larger canvas");
 assert.match(html, /id="shape-import"/, "Black-background bokeh image import is present");
 assert.match(html, /accept="image\/\*"/, "Shape importer accepts image files");
 assert.match(html, /<canvas id="shape-crop"/, "Imported bokeh images can be cropped online");
@@ -35,6 +40,9 @@ assert.match(html, /function drawShapePreset/, "Shape presets draw into the edit
 assert.match(html, /function redrawShapeBase/, "Shape base transform can be reapplied without losing the base preset model");
 assert.match(html, /currentShapePreset === "default"/, "Default mode is tracked separately from texture-mask presets");
 assert.match(html, /function drawOnShapeEditor/, "Pointer drawing can modify the custom bokeh mask");
+assert.match(html, /function syncLargeShapeEditor/, "Large shape editor mirrors the active PSF texture");
+assert.match(html, /attachShapeDrawing\(largeShapeEditor\)/, "Large shape editor supports direct drawing");
+assert.doesNotMatch(html, /attachShapeDrawing\(shapeEditor\)/, "Compact shape canvas is a preview and Edit launcher, not another brush surface");
 assert.match(html, /currentDrawTool === "erase"/, "Drawing logic supports erasing from the custom texture layer");
 assert.match(html, /currentDrawTool === "black"/, "Drawing logic supports black texture strokes");
 assert.match(html, /shapeTextureVersion/, "Shape edits are versioned for renderer upload");

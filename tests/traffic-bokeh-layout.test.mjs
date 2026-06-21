@@ -7,4 +7,4 @@ assert.match(html, /function createTrafficLights/, "Scene uses a traffic/night-s
 assert.match(html, /kind:\s*"headlight"/, "Layout contains white headlight sources");
 assert.match(html, /kind:\s*"tail"/, "Layout contains red tail-light sources");
 assert.match(html, /kind:\s*"street"/, "Layout contains amber streetlight sources");
-assert.match(html, /activeLightsForFrame\.length} lights/, "Readout reports the current active bokeh count");
+assert.match(html, /renderReadout\([^)]*activeLightsForFrame\.length/, "Readout reports the current active bokeh count");

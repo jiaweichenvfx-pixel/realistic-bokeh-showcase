@@ -33,6 +33,9 @@ The showcase should emphasize these visible lens cues:
 - **Wet-road reflections**: lower-frame light sources cast blurred vertical reflections so the showcase reads like a real night-lens photograph instead of floating dots.
 - **Sensor response**: high dynamic range accumulation is compressed by filmic tone mapping.
 - **Custom bokeh masks**: users can draw or import a black-background bokeh image as a 256x256 aperture/PSF texture, preserving soft edges, internal RGB texture, and chromatic detail.
+- **Editable PSF detail**: imported PSF images expose black point, white point, and gamma controls, while free drawing exposes brush size, softness, opacity, color, black strokes, and erasing.
+- **Bokeh motion**: every light source has deterministic sub-pixel drift and intensity flicker so exported videos feel like lens footage rather than a static plate.
+- **Output**: the app can export the current rendered canvas as a PNG frame and can record the animated canvas as MP4 when the browser supports MP4 `MediaRecorder`.
 
 ## Physical Model
 
@@ -62,12 +65,14 @@ The WebGPU path:
 - computes a soft aperture point-spread function in WGSL, with aperture shape, rim bias, subtle surface texture, and a shoulder outside the hard aperture edge;
 - uploads a 256x256 editable bokeh mask/texture from the in-page shape editor;
 - supports a Default procedural aperture preset that keeps blade count and roundness active, plus circle, ellipse, rectangle, hexagon, star, anamorphic slit, and ring texture-mask presets;
-- lets the user rotate/scale preset bases and imported images, then draw more detail on top;
+- lets the user rotate/scale preset bases and imported images, then draw more detail on top in a 720px Edit workspace, while the compact canvas stays a preview/launcher;
 - supports importing black-background bokeh images, previewing a default 1:1 square crop, dragging/zooming the crop, and applying the crop as the active PSF texture without flattening it to grayscale;
+- applies black/white/gamma controls to imported textures before renderer upload, preserving soft-edge energy instead of turning the image into a hard silhouette;
 - derives aperture energy from imported image luminance while preserving the image's soft edges and RGB texture/color fringing;
-- lets freehand drawing use a chosen color, black energy-blocking strokes, or an eraser on the editable PSF texture layer;
+- keeps freehand brush controls inside the Edit workspace, where drawing can use a chosen color, black energy-blocking strokes, or an eraser on the editable PSF texture layer, with controllable brush size, softness, and opacity;
+- adds subtle per-light rotation and UV offset to custom PSF textures so repeated imported shapes do not stack as identical stamps;
 - accumulates bokeh energy additively into an `rgba16float` HDR render target instead of blending directly into the display buffer;
-- uses a final tone-map pass to combine a dark night-road background, the HDR bokeh texture, and a filmic response curve;
+- uses a final tone-map pass to combine a dark night-road background, soft-knee compressed HDR bokeh overlap, and a filmic response curve;
 - keeps fake single-pass screen-space bloom disabled, because sparse fixed offset samples create four-corner ghosts and broad pure-color patches around small highlights;
 - caps rendering to 1x DPR and 30fps, and skips frames while the document is hidden.
 
@@ -110,8 +115,14 @@ Keep controls compact:
 | Base Hue | Dominant physical light color for the generated sources |
 | Color Random | Per-light hue/source color variation; zero makes lights share the base color |
 | Alpha Random | Per-light brightness/opacity variation after exposure |
+| Motion | Per-light drift amount for animated lens/source movement |
+| Flicker | Per-light intensity flicker amount for video output |
 | Shape editor | Draw, preset, or import a 256x256 bokeh mask/texture |
 | Shape Rot/Scale | Rotate and scale the preset/imported base before drawing extra details |
+| Tex Black/White/Gamma | Imported PSF texture levels for soft edge and internal detail control |
+| Brush Size/Soft/Opacity | Freehand PSF drawing controls |
+| Frame | Export the current canvas as a PNG at the actual rendered canvas resolution |
+| Video | Record the animated canvas as MP4 if the browser exposes MP4 MediaRecorder support |
 
 ## File Layout
 
@@ -138,6 +149,17 @@ bokeh_generate/
 - Pressing Shuffle changes the randomized layout while preserving lens parameters.
 - Moving Dispersion visibly changes blue-violet channel spill around off-axis highlights.
 - The scene remains responsive at normal desktop browser sizes.
+- The large shape editor opens to a substantially larger square workspace for controlled PSF drawing.
+- Motion and Flicker visibly animate bokeh position and brightness without changing the physical layout controls.
+- Frame export saves the current canvas pixels as PNG.
+- Video export records MP4 when supported; if the current browser does not support MP4 recording, the app says so instead of silently falling back to another format.
+
+## Output Resolution
+
+The live renderer currently caps DPR at 1 for responsiveness, so exports use the actual canvas backing resolution shown in the readout. For example, a 1920x1080 browser viewport exports a 1920x1080 PNG or MP4. Stable high-resolution delivery should be staged as a separate offscreen/export pass:
+
+- PNG single-frame export can reasonably target 1080p, 2K, 4K, and optionally 8K on capable hardware.
+- MP4 video export should default to 1080p or 4K; 8K video is browser- and encoder-dependent and should not be treated as a guaranteed single-file browser feature.
 
 ## Deferred
 
