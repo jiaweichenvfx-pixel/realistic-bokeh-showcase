@@ -4,11 +4,15 @@ import { strict as assert } from "node:assert";
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
 assert.match(html, /data-param="motionAmount"/, "Bokeh motion amount control is present");
+assert.match(html, /data-param="motionSpeed"/, "Bokeh motion speed control is present");
 assert.match(html, /data-param="flickerAmount"/, "Bokeh flicker amount control is present");
 assert.match(html, /params\.motionAmount/, "Renderer uses the bokeh motion parameter");
+assert.match(html, /params\.motionSpeed/, "Renderer uses the bokeh motion speed parameter");
 assert.match(html, /params\.flickerAmount/, "Renderer uses the bokeh flicker parameter");
 assert.match(html, /function lightMotionOffset/, "Per-light motion offsets are derived deterministically");
 assert.match(html, /function lightTwinkle/, "Per-light flicker/twinkle is derived deterministically");
+assert.match(html, /const animationSpeed = Math\.max\(0\.25, Math\.min\(4, params\.motionSpeed\)\)/, "Motion speed is clamped to a previewable physical range");
+assert.match(html, /0\.012 \* motionAmount/, "Motion amplitude is large enough to preview without export");
 assert.match(html, /id="export-frame"/, "Single-frame export button is present");
 assert.match(html, /id="export-video"/, "Video export button is present");
 assert.match(html, /function exportFrame/, "Single-frame PNG export is implemented");

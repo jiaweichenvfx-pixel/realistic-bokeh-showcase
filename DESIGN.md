@@ -116,11 +116,12 @@ Keep controls compact:
 | Color Random | Per-light hue/source color variation; zero makes lights share the base color |
 | Alpha Random | Per-light brightness/opacity variation after exposure |
 | Motion | Per-light drift amount for animated lens/source movement |
+| Anim Speed | Preview/export speed for the smooth bokeh drift and flicker |
 | Flicker | Per-light intensity flicker amount for video output |
 | Shape editor | Draw, preset, or import a 256x256 bokeh mask/texture |
 | Shape Rot/Scale | Rotate and scale the preset/imported base before drawing extra details |
-| Tex Black/White/Gamma | Imported PSF texture levels for soft edge and internal detail control |
-| Brush Size/Soft/Opacity | Freehand PSF drawing controls |
+| Tex Black/White/Gamma | Imported PSF texture levels shown inside Edit only after an image import |
+| Brush Size/Soft/Opacity | Freehand PSF drawing controls kept inside the Edit workspace |
 | Frame | Export the current canvas as a PNG at the actual rendered canvas resolution |
 | Video | Record the animated canvas as MP4 if the browser exposes MP4 MediaRecorder support |
 

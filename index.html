@@ -174,6 +174,7 @@
     .shape-workspace-tools {
       display: grid;
       gap: 8px;
+      align-content: start;
     }
 
     .shape-workspace-tools .control {
@@ -194,6 +195,27 @@
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       gap: 8px;
+    }
+
+    .shape-workspace-section-title {
+      margin-top: 4px;
+      color: rgba(244, 240, 232, 0.58);
+      font-size: 11px;
+      font-weight: 680;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .texture-controls {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .texture-controls[hidden] {
+      display: none;
     }
 
     .shape-import {
@@ -374,13 +396,19 @@
     </label>
 
     <label class="control">
-      <span>Motion</span>
+      <span>Anim Move</span>
       <input data-param="motionAmount" type="range" min="0" max="1" step="0.01" value="0.72">
       <span class="value" data-value="motionAmount"></span>
     </label>
 
     <label class="control">
-      <span>Flicker</span>
+      <span>Anim Speed</span>
+      <input data-param="motionSpeed" type="range" min="0.25" max="4" step="0.05" value="1.8">
+      <span class="value" data-value="motionSpeed"></span>
+    </label>
+
+    <label class="control">
+      <span>Anim Flicker</span>
       <input data-param="flickerAmount" type="range" min="0" max="1" step="0.01" value="0.55">
       <span class="value" data-value="flickerAmount"></span>
     </label>
@@ -416,24 +444,6 @@
       <span class="value" data-value="shapeScale"></span>
     </label>
 
-    <label class="control">
-      <span>Tex Black</span>
-      <input data-param="textureBlack" type="range" min="0" max="0.85" step="0.01" value="0">
-      <span class="value" data-value="textureBlack"></span>
-    </label>
-
-    <label class="control">
-      <span>Tex White</span>
-      <input data-param="textureWhite" type="range" min="0.15" max="1" step="0.01" value="1">
-      <span class="value" data-value="textureWhite"></span>
-    </label>
-
-    <label class="control">
-      <span>Tex Gamma</span>
-      <input data-param="textureGamma" type="range" min="0.25" max="3" step="0.01" value="1">
-      <span class="value" data-value="textureGamma"></span>
-    </label>
-
     <div class="actions">
       <button id="preset-cinema" type="button">Cinema</button>
       <button id="preset-soap" type="button">Soap bubble</button>
@@ -450,6 +460,7 @@
       <div class="shape-workspace-tools">
         <button type="button" id="shape-close-large">Close</button>
         <input id="shape-draw-color" type="color" value="#ffffff" aria-label="Brush color">
+        <div class="shape-workspace-section-title">Brush</div>
         <div class="shape-workspace-tool-row">
           <button type="button" data-draw-tool="paint">Paint</button>
           <button type="button" data-draw-tool="black">Black</button>
@@ -470,6 +481,24 @@
           <input data-param="brushOpacity" type="range" min="0.02" max="1" step="0.01" value="1">
           <span class="value" data-value="brushOpacity"></span>
         </label>
+        <div class="texture-controls" id="texture-controls" hidden>
+          <div class="shape-workspace-section-title">Imported Texture</div>
+          <label class="control">
+            <span>Black</span>
+            <input data-param="textureBlack" type="range" min="0" max="0.85" step="0.01" value="0">
+            <span class="value" data-value="textureBlack"></span>
+          </label>
+          <label class="control">
+            <span>White</span>
+            <input data-param="textureWhite" type="range" min="0.15" max="1" step="0.01" value="1">
+            <span class="value" data-value="textureWhite"></span>
+          </label>
+          <label class="control">
+            <span>Gamma</span>
+            <input data-param="textureGamma" type="range" min="0.25" max="3" step="0.01" value="1">
+            <span class="value" data-value="textureGamma"></span>
+          </label>
+        </div>
       </div>
     </div>
   </div>
@@ -494,6 +523,7 @@
     const shapeCropCtx = shapeCrop.getContext("2d", { alpha: false });
     const shapeImport = document.querySelector("#shape-import");
     const shapeDrawColor = document.querySelector("#shape-draw-color");
+    const textureControls = document.querySelector("#texture-controls");
     const SHAPE_TEXTURE_SIZE = 256;
     const shapeBaseLayer = document.createElement("canvas");
     const shapePaintLayer = document.createElement("canvas");
@@ -546,6 +576,7 @@
       colorRandomness: 0.18,
       opacityRandomness: 0.16,
       motionAmount: 0.72,
+      motionSpeed: 1.8,
       flickerAmount: 0.55,
       shapeRotation: 0,
       shapeScale: 1,
@@ -576,6 +607,7 @@
       colorRandomness: value => `${Math.round(value * 100)}%`,
       opacityRandomness: value => `${Math.round(value * 100)}%`,
       motionAmount: value => `${Math.round(value * 100)}%`,
+      motionSpeed: value => `${value.toFixed(2)}x`,
       flickerAmount: value => `${Math.round(value * 100)}%`,
       shapeRotation: value => `${Math.round(value)}deg`,
       shapeScale: value => `${value.toFixed(2)}x`,
@@ -749,7 +781,7 @@
     }
 
     function renderReadout(width, height, count, mode) {
-      readout.textContent = `${width} x ${height}  |  ${count} lights  |  ${mode}${exportStatus ? `  |  ${exportStatus}` : ""}`;
+      readout.textContent = `${width} x ${height}  |  ${count} lights  |  ${mode}  |  Live Preview${exportStatus ? `  |  ${exportStatus}` : ""}`;
     }
 
     function syncLargeShapeEditor() {
@@ -766,6 +798,10 @@
       });
     }
 
+    function updateTextureControls() {
+      textureControls.hidden = currentShapePreset !== "custom-image";
+    }
+
     function clearShapeEditor() {
       shapeCtx.setTransform(1, 0, 0, 1, 0, 0);
       shapeCtx.globalCompositeOperation = "source-over";
@@ -776,6 +812,7 @@
       shapePaintCtx.setTransform(1, 0, 0, 1, 0, 0);
       shapePaintCtx.clearRect(0, 0, SHAPE_TEXTURE_SIZE, SHAPE_TEXTURE_SIZE);
       importedShapeTextureCtx.setTransform(1, 0, 0, 1, 0, 0);
+      updateTextureControls();
     }
 
     function composeShapeLayers() {
@@ -879,6 +916,7 @@
       currentShapePreset = preset;
       shapePaintCtx.setTransform(1, 0, 0, 1, 0, 0);
       shapePaintCtx.clearRect(0, 0, SHAPE_TEXTURE_SIZE, SHAPE_TEXTURE_SIZE);
+      updateTextureControls();
       redrawShapeBase();
     }
 
@@ -1006,6 +1044,7 @@
       rawImportedShapeTextureCtx.drawImage(importedShapeImage, offsetX + cropState.centerX - drawWidth * 0.5, offsetY + cropState.centerY - drawHeight * 0.5, drawWidth, drawHeight);
       preserveImportedBokehTexture();
       currentShapePreset = "custom-image";
+      updateTextureControls();
       drawImportedShapeBase();
     }
 
@@ -1273,15 +1312,15 @@
     }
 
     document.querySelector("#preset-cinema").addEventListener("click", () => {
-      applyPreset({ fStop: 1.7, focus: 0.52, blades: 9, roundness: 0.82, scaleX: 1, scaleY: 1, randomness: 0.16, bokehCount: 56, sizeRandomness: 0.38, overallSize: 1, chromatic: 0.18, rimBias: 0.04, exposure: 1.05, bloom: 0.04, baseHue: 36, colorRandomness: 0.18, opacityRandomness: 0.16, motionAmount: 0.72, flickerAmount: 0.55 });
+      applyPreset({ fStop: 1.7, focus: 0.52, blades: 9, roundness: 0.82, scaleX: 1, scaleY: 1, randomness: 0.16, bokehCount: 56, sizeRandomness: 0.38, overallSize: 1, chromatic: 0.18, rimBias: 0.04, exposure: 1.05, bloom: 0.04, baseHue: 36, colorRandomness: 0.18, opacityRandomness: 0.16, motionAmount: 0.72, motionSpeed: 1.8, flickerAmount: 0.55 });
     });
 
     document.querySelector("#preset-soap").addEventListener("click", () => {
-      applyPreset({ fStop: 1.35, focus: 0.62, blades: 11, roundness: 0.9, scaleX: 1, scaleY: 1, randomness: 0.5, bokehCount: 68, sizeRandomness: 0.58, overallSize: 1.16, chromatic: 0.24, rimBias: 0.72, exposure: 0.92, bloom: 0.08, baseHue: 28, colorRandomness: 0.36, opacityRandomness: 0.22, motionAmount: 0.82, flickerAmount: 0.62 });
+      applyPreset({ fStop: 1.35, focus: 0.62, blades: 11, roundness: 0.9, scaleX: 1, scaleY: 1, randomness: 0.5, bokehCount: 68, sizeRandomness: 0.58, overallSize: 1.16, chromatic: 0.24, rimBias: 0.72, exposure: 0.92, bloom: 0.08, baseHue: 28, colorRandomness: 0.36, opacityRandomness: 0.22, motionAmount: 0.82, motionSpeed: 2.1, flickerAmount: 0.62 });
     });
 
     document.querySelector("#preset-night").addEventListener("click", () => {
-      applyPreset({ fStop: 2.25, focus: 0.38, blades: 6, roundness: 0.2, scaleX: 1.42, scaleY: 0.72, randomness: 0.18, bokehCount: 58, sizeRandomness: 0.38, overallSize: 1.08, chromatic: 0.14, rimBias: 0.08, exposure: 1.22, bloom: 0.03, baseHue: 34, colorRandomness: 0.22, opacityRandomness: 0.18, motionAmount: 0.64, flickerAmount: 0.42 });
+      applyPreset({ fStop: 2.25, focus: 0.38, blades: 6, roundness: 0.2, scaleX: 1.42, scaleY: 0.72, randomness: 0.18, bokehCount: 58, sizeRandomness: 0.38, overallSize: 1.08, chromatic: 0.14, rimBias: 0.08, exposure: 1.22, bloom: 0.03, baseHue: 34, colorRandomness: 0.22, opacityRandomness: 0.18, motionAmount: 0.64, motionSpeed: 1.55, flickerAmount: 0.42 });
     });
 
     document.querySelector("#shuffle-layout").addEventListener("click", () => {
@@ -1418,21 +1457,24 @@
 
     function lightMotionOffset(light, time) {
       const motionAmount = Math.max(0, Math.min(1, params.motionAmount));
+      const animationSpeed = Math.max(0.25, Math.min(4, params.motionSpeed));
       const drift = light.drift || 0.1;
       const phase = light.phase || 0;
       const depthScale = 0.55 + (1 - Math.min(1, light.anchorDepth || 0.5)) * 0.7;
+      const speed = animationSpeed * (4.5 + drift * 5.5);
       return {
-        x: Math.sin(time * drift + phase) * 0.0036 * motionAmount * depthScale,
-        y: Math.cos(time * drift * 0.7 + phase) * 0.0028 * motionAmount * depthScale
+        x: Math.sin(time * speed + phase) * 0.012 * motionAmount * depthScale,
+        y: Math.cos(time * speed * 0.73 + phase) * 0.0085 * motionAmount * depthScale
       };
     }
 
     function lightTwinkle(light, time) {
       const flickerAmount = Math.max(0, Math.min(1, params.flickerAmount));
+      const animationSpeed = Math.max(0.25, Math.min(4, params.motionSpeed));
       const phase = light.phase || 0;
-      const slowWave = Math.sin(time * 0.72 + phase);
-      const fastWave = Math.sin(time * 2.1 + phase * 1.37) * 0.34;
-      return 1 + (slowWave + fastWave) * 0.055 * flickerAmount;
+      const slowWave = Math.sin(time * 1.4 * animationSpeed + phase);
+      const fastWave = Math.sin(time * 4.2 * animationSpeed + phase * 1.37) * 0.34;
+      return 1 + (slowWave + fastWave) * 0.12 * flickerAmount;
     }
 
     function resolveLightColor(light) {
