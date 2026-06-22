@@ -129,7 +129,7 @@ Keep controls compact:
 | Tex Black/White/Gamma | Imported PSF texture levels shown inside Edit only after an image import |
 | Brush Size/Soft/Opacity | Freehand PSF drawing controls kept inside the Edit workspace |
 | Frame | Export the current canvas as a PNG at the actual rendered canvas resolution |
-| Video | Record the animated canvas as MP4, then expose a Save MP4 link or save picker |
+| Record MP4 / Save MP4 | Record the animated canvas as MP4, then expose a Save MP4 link or save picker |
 
 ## File Layout
 

@@ -18,6 +18,7 @@ assert.match(html, /1\.15 \* flickerAmount/, "Flicker has a large intensity rang
 assert.match(html, /resolveLightOpacity\(light, baseAlpha\) \* twinkle/, "Flicker is applied after base alpha clamping so bright lights visibly pulse");
 assert.match(html, /id="export-frame"/, "Single-frame export button is present");
 assert.match(html, /id="export-video"/, "Video export button is present");
+assert.match(html, /role="button">Record MP4<\/a>/, "Video export starts with an explicit Record MP4 control");
 assert.match(html, /function exportFrame/, "Single-frame PNG export is implemented");
 assert.match(html, /canvas\.toBlob/, "Frame export captures the rendered canvas");
 assert.match(html, /function exportVideo/, "Video export is implemented");
@@ -25,7 +26,7 @@ assert.match(html, /canvas\.captureStream\(30\)/, "Video export captures an anim
 assert.match(html, /function chooseMp4MimeType/, "Video export chooses an MP4 recorder MIME type");
 assert.match(html, /new MediaRecorder/, "Video export records the canvas stream");
 assert.match(html, /let pendingVideoExport = null/, "Video export keeps async recorder output until the user can save it");
-assert.match(html, /MP4 ready - click Video to save/, "Video export avoids claiming a blocked async download was saved");
+assert.match(html, /MP4 ready - click Save MP4/, "Video export tells the user where the save action appears");
 assert.match(html, /function savePendingVideoExport/, "Video export saves the completed MP4 from a direct user gesture");
 assert.match(html, /showSaveFilePicker/, "Video export uses the File System Access save picker when downloads are blocked");
 assert.match(html, /exportVideoButton\.href = pendingVideoExport\.url/, "Ready MP4 is exposed as a real user-clickable download link");

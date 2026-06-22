@@ -457,7 +457,7 @@
       <button id="preset-night" type="button">Night street</button>
       <button id="shuffle-layout" type="button">Shuffle</button>
       <button id="export-frame" type="button">Frame</button>
-      <a id="export-video" class="button-link" href="#" role="button">Video</a>
+      <a id="export-video" class="button-link" href="#" role="button">Record MP4</a>
     </div>
   </section>
 
@@ -800,7 +800,7 @@
 
     function syncVideoButtonLabel() {
       if (!exportVideoButton) return;
-      exportVideoButton.textContent = pendingVideoExport ? "Save MP4" : "Video";
+      exportVideoButton.textContent = pendingVideoExport ? "Save MP4" : "Record MP4";
       if (pendingVideoExport) {
         exportVideoButton.href = pendingVideoExport.url;
         exportVideoButton.download = pendingVideoExport.filename;
@@ -1473,7 +1473,7 @@
           filename: `bokeh-video-${canvas.width}x${canvas.height}.mp4`
         };
         syncVideoButtonLabel();
-        setExportStatus(`MP4 ready - click Video to save ${canvas.width} x ${canvas.height}`);
+        setExportStatus(`MP4 ready - click Save MP4 ${canvas.width} x ${canvas.height}`);
       });
       recorder.start();
       setExportStatus(`Recording MP4 ${canvas.width} x ${canvas.height}`);
