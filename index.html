@@ -222,7 +222,11 @@
       display: none;
     }
 
-    button {
+    button,
+    .button-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       flex: 1 1 auto;
       height: 32px;
       padding: 0 12px;
@@ -232,14 +236,17 @@
       color: #f4f0e8;
       font: inherit;
       font-size: 12px;
+      text-decoration: none;
       cursor: pointer;
     }
 
-    button:hover {
+    button:hover,
+    .button-link:hover {
       background: rgba(255, 255, 255, 0.13);
     }
 
-    button.is-active {
+    button.is-active,
+    .button-link.is-active {
       border-color: rgba(240, 210, 138, 0.6);
       background: rgba(240, 210, 138, 0.16);
     }
@@ -450,7 +457,7 @@
       <button id="preset-night" type="button">Night street</button>
       <button id="shuffle-layout" type="button">Shuffle</button>
       <button id="export-frame" type="button">Frame</button>
-      <button id="export-video" type="button">Video</button>
+      <a id="export-video" class="button-link" href="#" role="button">Video</a>
     </div>
   </section>
 
@@ -537,6 +544,7 @@
     const shapePaintCtx = shapePaintLayer.getContext("2d", { alpha: true });
     const rawImportedShapeTextureCtx = rawImportedShapeTextureCanvas.getContext("2d", { alpha: true });
     const importedShapeTextureCtx = importedShapeTextureCanvas.getContext("2d", { alpha: true });
+    const exportVideoButton = document.querySelector("#export-video");
     const TARGET_FPS = 30;
     const FRAME_INTERVAL_MS = 1000 / TARGET_FPS;
     let lastFrameTime = 0;
@@ -551,6 +559,9 @@
     let cropBoxSize = SHAPE_TEXTURE_SIZE;
     let exportStatus = "";
     let exportStatusTimer = 0;
+    let pendingVideoExport = null;
+    let activeVideoRecorder = null;
+    let lastReadoutState = null;
     const cropState = {
       centerX: SHAPE_TEXTURE_SIZE * 0.5,
       centerY: SHAPE_TEXTURE_SIZE * 0.5,
@@ -775,13 +786,32 @@
 
     function setExportStatus(message) {
       exportStatus = message;
+      if (lastReadoutState) {
+        renderReadout(lastReadoutState.width, lastReadoutState.height, lastReadoutState.count, lastReadoutState.mode);
+      }
       if (exportStatusTimer) window.clearTimeout(exportStatusTimer);
       exportStatusTimer = window.setTimeout(() => {
         exportStatus = "";
+        if (lastReadoutState) {
+          renderReadout(lastReadoutState.width, lastReadoutState.height, lastReadoutState.count, lastReadoutState.mode);
+        }
       }, 4200);
     }
 
+    function syncVideoButtonLabel() {
+      if (!exportVideoButton) return;
+      exportVideoButton.textContent = pendingVideoExport ? "Save MP4" : "Video";
+      if (pendingVideoExport) {
+        exportVideoButton.href = pendingVideoExport.url;
+        exportVideoButton.download = pendingVideoExport.filename;
+      } else {
+        exportVideoButton.href = "#";
+        exportVideoButton.removeAttribute("download");
+      }
+    }
+
     function renderReadout(width, height, count, mode) {
+      lastReadoutState = { width, height, count, mode };
       readout.textContent = `${width} x ${height}  |  ${count} lights  |  ${mode}  |  Live Preview${exportStatus ? `  |  ${exportStatus}` : ""}`;
     }
 
@@ -1368,28 +1398,82 @@
       return candidates.find(type => MediaRecorder.isTypeSupported(type)) || "";
     }
 
-    function exportVideo() {
+    async function savePendingVideoExport(event) {
+      if (!pendingVideoExport) return false;
+      if ("showSaveFilePicker" in window) {
+        event.preventDefault();
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: pendingVideoExport.filename,
+            types: [{ description: "MP4 video", accept: { "video/mp4": [".mp4"] } }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(pendingVideoExport.blob);
+          await writable.close();
+          URL.revokeObjectURL(pendingVideoExport.url);
+          pendingVideoExport = null;
+          syncVideoButtonLabel();
+          setExportStatus(`MP4 saved ${canvas.width} x ${canvas.height}`);
+        } catch (error) {
+          if (error && error.name === "AbortError") {
+            setExportStatus("MP4 save canceled");
+          } else {
+            setExportStatus("MP4 save failed - use Save MP4 link");
+          }
+        }
+        return true;
+      }
+      setExportStatus(`MP4 save requested ${canvas.width} x ${canvas.height}`);
+      const savedExport = pendingVideoExport;
+      window.setTimeout(() => {
+        if (pendingVideoExport !== savedExport) return;
+        URL.revokeObjectURL(savedExport.url);
+        pendingVideoExport = null;
+        syncVideoButtonLabel();
+      }, 60000);
+      return true;
+    }
+
+    function exportVideo(event) {
+      if (pendingVideoExport) {
+        savePendingVideoExport(event);
+        return;
+      }
+      event.preventDefault();
+
       const mimeType = chooseMp4MimeType();
       if (!mimeType || !canvas.captureStream) {
         setExportStatus("MP4 recording is not supported in this browser");
         return;
       }
 
+      if (activeVideoRecorder && activeVideoRecorder.state !== "inactive") {
+        setExportStatus("MP4 recording is already running");
+        return;
+      }
+
       const stream = canvas.captureStream(30);
       const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 18000000 });
+      activeVideoRecorder = recorder;
       const chunks = [];
       recorder.addEventListener("dataavailable", event => {
         if (event.data && event.data.size > 0) chunks.push(event.data);
       });
       recorder.addEventListener("stop", () => {
         stream.getTracks().forEach(track => track.stop());
+        activeVideoRecorder = null;
         if (!chunks.length) {
           setExportStatus("MP4 export failed");
           return;
         }
         const blob = new Blob(chunks, { type: mimeType });
-        downloadBlob(blob, `bokeh-video-${canvas.width}x${canvas.height}.mp4`);
-        setExportStatus(`Saved MP4 ${canvas.width} x ${canvas.height}`);
+        pendingVideoExport = {
+          blob,
+          url: URL.createObjectURL(blob),
+          filename: `bokeh-video-${canvas.width}x${canvas.height}.mp4`
+        };
+        syncVideoButtonLabel();
+        setExportStatus(`MP4 ready - click Video to save ${canvas.width} x ${canvas.height}`);
       });
       recorder.start();
       setExportStatus(`Recording MP4 ${canvas.width} x ${canvas.height}`);
@@ -1398,8 +1482,9 @@
       }, 4200);
     }
 
+    syncVideoButtonLabel();
     document.querySelector("#export-frame").addEventListener("click", exportFrame);
-    document.querySelector("#export-video").addEventListener("click", exportVideo);
+    exportVideoButton.addEventListener("click", exportVideo);
 
     function rgba(color, alpha) {
       return `rgba(${Math.round(color[0])}, ${Math.round(color[1])}, ${Math.round(color[2])}, ${alpha})`;
