@@ -22,7 +22,11 @@ assert.match(html, /role="button">Record MP4<\/a>/, "Video export starts with an
 assert.match(html, /function exportFrame/, "Single-frame PNG export is implemented");
 assert.match(html, /canvas\.toBlob/, "Frame export captures the rendered canvas");
 assert.match(html, /function exportVideo/, "Video export is implemented");
-assert.match(html, /canvas\.captureStream\(30\)/, "Video export captures an animated 30fps canvas stream");
+assert.match(html, /function renderVideoExportFrame/, "Video export renders through a safe export canvas");
+assert.match(html, /const recordCanvas = document\.createElement\("canvas"\)/, "Video export avoids capturing the live WebGPU canvas directly");
+assert.match(html, /recordCanvas\.captureStream\(30\)/, "Video export captures an animated 30fps 2D canvas stream");
+assert.doesNotMatch(html, /const stream = canvas\.captureStream\(30\)/, "Video export should not capture the live WebGPU canvas because it can crash embedded browsers");
+assert.match(html, /finally \{\s*ctx = previousCtx;\s*\}/, "Video export restores the live render context if export-frame rendering throws");
 assert.match(html, /function chooseMp4MimeType/, "Video export chooses an MP4 recorder MIME type");
 assert.match(html, /new MediaRecorder/, "Video export records the canvas stream");
 assert.match(html, /let pendingVideoExport = null/, "Video export keeps async recorder output until the user can save it");

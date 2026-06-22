@@ -38,7 +38,7 @@ The showcase should emphasize these visible lens cues:
 - **Custom bokeh masks**: users can draw or import a black-background bokeh image as a 256x256 aperture/PSF texture, preserving soft edges, internal RGB texture, and chromatic detail.
 - **Editable PSF detail**: imported PSF images expose black point, white point, and gamma controls, while free drawing exposes brush size, softness, opacity, color, black strokes, and erasing.
 - **Bokeh motion**: every light source has deterministic sub-pixel drift and intensity flicker so exported videos feel like lens footage rather than a static plate.
-- **Output**: the app can export the current rendered canvas as a PNG frame and can record the animated canvas as MP4 when the browser supports MP4 `MediaRecorder`; MP4 saving is a two-step flow so embedded browsers do not block async downloads.
+- **Output**: the app can export the current rendered canvas as a PNG frame and can record MP4 from a separate 2D export canvas when the browser supports MP4 `MediaRecorder`; MP4 saving is a two-step flow so embedded browsers do not block async downloads or capture the live WebGPU surface directly.
 
 ## Physical Model
 
@@ -159,7 +159,7 @@ bokeh_generate/
 - The large shape editor opens to a substantially larger square workspace for controlled PSF drawing.
 - Motion and Flicker visibly animate bokeh position and brightness without changing the physical layout controls.
 - Frame export saves the current canvas pixels as PNG.
-- Video export records MP4 when supported, then changes the control to Save MP4 so saving happens from a direct user action; if available, the File System Access save picker is used, otherwise a real MP4 download link remains active.
+- Video export records MP4 from an offscreen 2D export canvas when supported, then changes the control to Save MP4 so saving happens from a direct user action; if available, the File System Access save picker is used, otherwise a real MP4 download link remains active.
 
 ## Output Resolution
 
