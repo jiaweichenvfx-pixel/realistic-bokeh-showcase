@@ -1434,24 +1434,10 @@
       return true;
     }
 
-    function renderVideoExportFrame(recordCanvas, recordCtx, width, height, time) {
-      const previousCtx = ctx;
-      try {
-        ctx = recordCtx;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        drawBackground(width, height, time);
-        prepareBokehLayers(width, height);
-        const activeLightsForFrame = activeLights();
-        const sorted = activeLightsForFrame.slice().sort((a, b) => b.depth - a.depth);
-        ctx = bokehCtx;
-        for (const light of sorted) {
-          drawLight(light, width, height, Math.min(width, height), time);
-        }
-        ctx = recordCtx;
-        compositeBokehLayer(width, height);
-      } finally {
-        ctx = previousCtx;
-      }
+    function mirrorLiveCanvasFrame(recordCtx, width, height) {
+      recordCtx.setTransform(1, 0, 0, 1, 0, 0);
+      recordCtx.clearRect(0, 0, width, height);
+      recordCtx.drawImage(canvas, 0, 0, width, height);
     }
 
     function exportVideo(event) {
@@ -1484,7 +1470,7 @@
       let stream = null;
       let recorder = null;
       try {
-        renderVideoExportFrame(recordCanvas, recordCtx, recordCanvas.width, recordCanvas.height, performance.now() * 0.001);
+        mirrorLiveCanvasFrame(recordCtx, recordCanvas.width, recordCanvas.height);
         stream = recordCanvas.captureStream(30);
         recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 18000000 });
       } catch (error) {
@@ -1521,7 +1507,7 @@
       const drawRecordingFrame = now => {
         if (recorder.state === "inactive") return;
         try {
-          renderVideoExportFrame(recordCanvas, recordCtx, recordCanvas.width, recordCanvas.height, now * 0.001);
+          mirrorLiveCanvasFrame(recordCtx, recordCanvas.width, recordCanvas.height);
         } catch (error) {
           setExportStatus("MP4 recording failed in this browser");
           recorder.stop();
